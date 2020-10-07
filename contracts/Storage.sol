@@ -39,18 +39,9 @@ contract owned {
 
 contract Pausable is owned {
     bool public isRunning;
-    /*
-    MODIFIERS
-    */
+
     modifier onlyWhenRunning {
         require(isRunning, "contract is currently closed");
-        _;
-    }
-    modifier onlyOwner {
-        require(
-            msg.sender == owner,
-            "Only owner can call this function."
-        );
         _;
     }
 
@@ -64,7 +55,7 @@ contract Pausable is owned {
  
 }
 
-contract Gateway is owned, Pausable {
+contract Storage is owned, Pausable {
 
     constructor(address payable _contractAddress) public {
         storageContractAddress = _contractAddress;
