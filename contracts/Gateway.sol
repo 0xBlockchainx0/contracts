@@ -43,13 +43,6 @@ abstract contract Pausable is owned {
         require(isRunning, "contract is currently closed");
         _;
     }
-    modifier onlyOwner {
-        require(
-            msg.sender == owner,
-            "Only owner can call this function."
-        );
-        _;
-    }
 
     function stopContract() public {
         isRunning = false;
@@ -62,6 +55,7 @@ abstract contract Pausable is owned {
 }
 
 contract Gateway is owned, Pausable {
+
 
     constructor(address payable _contractAddress) public {
        // storageContractAddress = _contractAddress;
