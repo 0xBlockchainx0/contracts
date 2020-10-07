@@ -58,6 +58,6 @@ contract Pausable is owned {
 contract Storage is owned, Pausable {
 
     constructor(address payable _contractAddress) public {
-        storageContractAddress = _contractAddress;
+      //  storageContractAddress = _contractAddress;
     }
 }

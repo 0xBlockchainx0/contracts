@@ -1,6 +1,6 @@
 pragma solidity 0.6.2;
 
-contract owned {
+abstract contract owned {
     constructor() public { owner = msg.sender; }
     address payable owner;
     //Gateway contract is the current function contract
@@ -37,11 +37,8 @@ contract owned {
     }
 }
 
-contract Pausable is owned {
+abstract contract Pausable is owned {
     bool public isRunning;
-    /*
-    MODIFIERS
-    */
     modifier onlyWhenRunning {
         require(isRunning, "contract is currently closed");
         _;
@@ -54,11 +51,11 @@ contract Pausable is owned {
         _;
     }
 
-    function stopContract() public onlyOwner {
+    function stopContract() public {
         isRunning = false;
     }
 
-    function startContract() public onlyOwner {
+    function startContract() public {
         isRunning = true;
     }
  
@@ -67,6 +64,6 @@ contract Pausable is owned {
 contract Gateway is owned, Pausable {
 
     constructor(address payable _contractAddress) public {
-        storageContractAddress = _contractAddress;
+       // storageContractAddress = _contractAddress;
     }
 }
