@@ -5,7 +5,7 @@ abstract contract owned {
     address payable owner;
     //Gateway contract is the current function contract
     address payable gatewayContract;
-
+  
     // This contract only defines a modifier but does not use
     // it: it will be used in derived contracts.
     // The function body is inserted where the special symbol
@@ -59,5 +59,11 @@ contract Gateway is owned, Pausable {
 
     constructor(address payable _contractAddress) public {
        // storageContractAddress = _contractAddress;
+    }
+     function test() public {
+        isRunning = false;
+    }
+    function fff() public {
+        isRunning = false;
     }
 }
