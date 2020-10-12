@@ -1,3 +1,6 @@
-node_modules*
+
 .env*
-build/*
+contracts/.placeholder
+test/.placeholder
+build
+node_modules
