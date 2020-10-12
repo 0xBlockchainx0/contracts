@@ -2,7 +2,7 @@ pragma solidity 0.6.2;
 /**
 Owned is primarily used as a class of modifiers to be used in the main contracts to restrict access to certain functionality.
  */
-abstract contract owned {
+abstract contract Owned {
     constructor() public { owner = msg.sender; }
     address payable owner;
     address payable gatewayContract;
