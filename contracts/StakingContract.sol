@@ -42,64 +42,49 @@ contract StakingContract is Owned {
     mapping(bytes32 => PostItem) public postItems;
     bytes32[] public postItemIds;
    
+   // ****** Functions only callable by the deployer of this contract ******
     function setOwner(address payable _newOwner) public onlyOwner {
-        owner = _newOwner
+        owner = _newOwner;
     }
     function setGatewayContract (address payable _newGatewayContract) public onlyOwner{
         gatewayContract = _newGatewayContract;
     }
+
+
     // 0x10E0 == 4320 decimal, is about 20 seconds per block per 24 hour period
+     // ~ 1 hour is 1800 blocks -> 0x708
+     // ~ 6 hours 10800 -> 0x2a30
+     // ~24 hours 43200 -> 0xA8C0
     function addPost(bytes32 _postId, address payable _creator, uint256 _postLength) public onlyGateway {
-       
+        for (uint256 index = 0; index < postItemIds.length; index++) {
+            if (postItemIds[index] == _postId) {
+                revert("Post ID already exists");
+            }
+        }
+        address payable[] memory tempAddressArray = new address payable[](0);
+        uint intPostLength;
+        if (_postLength == uint(PostLength.Short)) {
+            intPostLength = 0x708;
+        } else if (_postLength == uint(PostLength.Medium)) {
+            intPostLength = 0x2a30;
+        } else {
+            intPostLength = 0xA8C0;
+        }
+
+        postItems[_postId] = PostItem({
+            creator: _creator,
+            creatorTipPool:0,
+            stakerTipPool:0,
+            ownerAmountAccrued:0,
+            stakers: tempAddressArray,
+            totalStakedAmount: 0,
+            status:Status.Open,
+            createdAtBlock: block.number,
+            tippingBlockStart: block.number + intPostLength,
+            stakersCount: 0
+        });
+        postItemIds.push(_postId);
     }
 
-    function getPostItemIds() public view returns (bytes32[] memory) {
-        return postItemIds;
-    }
- //Function should be privatly called internally ONLY
-    function closePost(bytes32 _postId, address _sender) private {
-    
-    }
-
-    function addCreatorTip(bytes32 _postId, uint amount) public onlyGateway {
-       
-    }
-    function addStakerTip(bytes32 _postId, uint amount) public onlyGateway {
-      
-    }
-    function addStake(bytes32 _postId, uint amount, address payable _sender) public  onlyGateway{
-     
-        
-    }
-   
-    function closeStake(bytes32 _postId, address payable _msgSender) public onlyGatewayOrThis {
-       
-  
-    }
-    function getStakers(bytes32 _postId) public view returns (address payable[] memory) {
-        return postItems[_postId].stakers;
-    }
-    function payout(bytes32 _postId, address payable _msgSender) public onlyGateway payable {
-      
-
-    }
-    /*function getStakeStatus(address _address) public view returns (StakeStatus) {
-        return postStakes[_address].status;
-    }*/
-    /*
-        returns the stake object vlaues in a tuple, from a specific post and specific person
-        cannot return a enum so must convert to plain uint before returning
-    */
-      function getStake(bytes32 _postId, address _address) public view returns(uint, uint256, uint256, uint, uint) {
-   
-      }
-/*
-      function () external payable {
-        // TODO: Call the call function in the main contract
-        // and forward all funds (msg.value) sent to this contract
-        // and passing in the following data: msg.sender
-    }
-    */
-}
 
 }

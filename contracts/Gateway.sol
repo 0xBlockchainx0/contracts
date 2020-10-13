@@ -22,16 +22,15 @@ contract Gateway is Owned, Pausable,BasicMetaTransaction {
     constructor(address payable _contractAddress) public {
         stakingContractAddress = _contractAddress;
     }
-
+    function updateFee(uint256 _newFee) public onlyOwner {
+        fee = _newFee;
+    }
 
     /// ****** Staking Features *******
     function setStakingContract(address payable _contractAddress) public onlyOwner {
         stakingContractAddress = _contractAddress;
     }
 
-    function updateFee(uint256 _newFee) public onlyOwner {
-        fee = _newFee;
-    }
      // ONLY OWNER CALLABLE
     function closePostOwned(bytes32 _postId) public onlyOwner {
 
