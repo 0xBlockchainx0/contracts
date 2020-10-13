@@ -5,8 +5,9 @@ import './abstractions/Owned.sol';
 import "./lib/BasicMetaTransaction.sol";
 
 contract StakingContract is Owned {
-    enum Status { Nonexistant, Open, ClosedByStaker, ClosedByPostOwner, ClosedByHuddln }
-    enum PostLength { Short, Medium, Long }
+    enum StakingStatus { Nonexistant, Open, ClosedByStaker, ClosedByHuddln };
+    enum PayoutStatus { paid, unpaid };
+    enum PostLength { Short, Medium, Long };
 
 
     event Post(
@@ -16,7 +17,7 @@ contract StakingContract is Owned {
         uint256 _value
     );
     struct Stake {
-        Status status;
+        StakingStatus status;
         uint256 amountStaked;
         uint256 amountAccrued;
         uint blockOpened;
@@ -25,14 +26,17 @@ contract StakingContract is Owned {
 
     struct PostItem {
         address payable creator;
-        uint256 creatorTipPool;
+
+        uint256 creatorEarningsPool;
+        PayoutStatus payoutStatus;
+        
         uint256 stakerTipPool;
+
         uint256 ownerAmountAccrued;
 
         address payable[] stakers;
         mapping (address => Stake) stakes;
         uint256 totalStakedAmount;
-        Status status;
         uint createdAtBlock;
         uint tippingBlockStart;
         //track amount of stakers without having to pull down array
@@ -73,12 +77,12 @@ contract StakingContract is Owned {
 
         postItems[_postId] = PostItem({
             creator: _creator,
-            creatorTipPool:0,
+            creatorEarningsPool:0,
             stakerTipPool:0,
             ownerAmountAccrued:0,
             stakers: tempAddressArray,
             totalStakedAmount: 0,
-            status:Status.Open,
+            payoutStatus: PayoutStatus.unpaid,
             createdAtBlock: block.number,
             tippingBlockStart: block.number + intPostLength,
             stakersCount: 0
@@ -86,5 +90,8 @@ contract StakingContract is Owned {
         postItemIds.push(_postId);
     }
 
-
+    function getPostItemIds() public view returns (bytes32[] memory) {
+        return postItemIds;
+    }
+   
 }
