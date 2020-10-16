@@ -5,9 +5,9 @@ import './abstractions/Owned.sol';
 import "./lib/BasicMetaTransaction.sol";
 
 contract StakingContract is Owned {
-    enum StakingStatus { Nonexistant, Open, ClosedByStaker, ClosedByHuddln };
-    enum PayoutStatus { paid, unpaid };
-    enum PostLength { Short, Medium, Long };
+    enum StakingStatus { Nonexistant, Open, ClosedByStaker, ClosedByHuddln }
+    enum PayoutStatus { unpaid, paid }
+    enum PostLength { Short, Medium, Long }
 
 
     event Post(
@@ -27,12 +27,13 @@ contract StakingContract is Owned {
     struct PostItem {
         address payable creator;
 
-        uint256 creatorEarningsPool;
-        PayoutStatus payoutStatus;
-        
-        uint256 stakerTipPool;
+        PayoutStatus creatorPayoutStatus;
+        // Pools
+        uint256 tipPool; // all tips go to this pool
 
-        uint256 ownerAmountAccrued;
+        uint256 stakeFeePool; // Stakers must pay 10% of stake directly to the owner's fee pool, the rest goes toward stake.
+
+        uint256 ownerAmountAccrued; // keeps track of how much owner has pulled out (historical)
 
         address payable[] stakers;
         mapping (address => Stake) stakes;
@@ -53,9 +54,6 @@ contract StakingContract is Owned {
     function setGatewayContract (address payable _newGatewayContract) public onlyOwner{
         gatewayContract = _newGatewayContract;
     }
-
-
-    // 0x10E0 == 4320 decimal, is about 20 seconds per block per 24 hour period
      // ~ 1 hour is 1800 blocks -> 0x708
      // ~ 6 hours 10800 -> 0x2a30
      // ~24 hours 43200 -> 0xA8C0
@@ -77,12 +75,12 @@ contract StakingContract is Owned {
 
         postItems[_postId] = PostItem({
             creator: _creator,
-            creatorEarningsPool:0,
-            stakerTipPool:0,
+            tipPool:0,
+            stakeFeePool:0,
             ownerAmountAccrued:0,
             stakers: tempAddressArray,
             totalStakedAmount: 0,
-            payoutStatus: PayoutStatus.unpaid,
+            creatorPayoutStatus: PayoutStatus.unpaid,
             createdAtBlock: block.number,
             tippingBlockStart: block.number + intPostLength,
             stakersCount: 0
@@ -93,5 +91,114 @@ contract StakingContract is Owned {
     function getPostItemIds() public view returns (bytes32[] memory) {
         return postItemIds;
     }
-   
+  
+
+    function addStakerTip(bytes32 _postId, uint amount) public onlyGateway {
+       // require(postItems[_postId].status == StakingStatus.Open,"Post is not open for tipping");
+        //require(postItems[_postId].tippingBlockStart <= block.number,"Post is not open for tipping"); // REMOVED FOR PRESENTATION PURPOSES, PUT BACK IN AFTER
+
+        postItems[_postId].tipPool = postItems[_postId].tipPool + amount;
+    }
+    function addStake(bytes32 _postId, uint amount, address payable _sender) public onlyGateway{
+       // require(postItems[_postId].status == StakingStatus.Open,"Post is not open for staking");
+        require(postItems[_postId].tippingBlockStart > block.number,"Post is not open for staking");
+        require(_sender != (postItems[_postId].creator),"You cannot stake on your own post");
+        //require(postItems[_postId].stakersCount <= 500,"Max stakers reached (500)");amountAccrued * 10/100;
+        uint fee = amount * 10/100; // find fee
+        amount = amount - fee; // remove fee from the amount staked.
+
+        postItems[_postId].stakeFeePool = postItems[_postId].stakeFeePool + fee; //add fee for owners earnings 
+        postItems[_postId].totalStakedAmount = postItems[_postId].totalStakedAmount + amount;
+        postItems[_postId].stakersCount = postItems[_postId].stakersCount+1;
+        postItems[_postId].stakers.push(_sender);
+        postItems[_postId].stakes[_sender] = Stake({
+            status: StakingStatus.Open,
+            amountStaked: amount,
+            amountAccrued: 0x0,
+            blockOpened: block.number,
+            blockClosed: 0x0
+        });
+        
+    }
+  
+    function closeStake(bytes32 _postId, address payable _msgSender) public onlyGatewayOrThis {
+        //require(postItems[_postId].tippingBlockStart > block.number,"Post is still in staking period, wait until tipping period has started."); //removed for demo purposes, put bac in after
+
+        require(postItems[_postId].stakes[_msgSender].status == StakingStatus.Open,"Stake is already closed");
+        
+    
+        uint256 originalStake = postItems[_postId].stakes[_msgSender].amountStaked;
+        uint256 amountAccrued = postItems[_postId].tipPool * originalStake / postItems[_postId].totalStakedAmount;
+            //pay fee
+        uint fee = amountAccrued * 10/100;
+        postItems[_postId].stakes[_msgSender].status = StakingStatus.ClosedByStaker;
+        postItems[_postId].stakes[_msgSender].blockClosed = block.number;
+        postItems[_postId].stakes[_msgSender].amountAccrued = amountAccrued - fee;
+        postItems[_postId].totalStakedAmount = postItems[_postId].totalStakedAmount - originalStake;
+        postItems[_postId].tipPool = postItems[_postId].tipPool - amountAccrued;
+        // pay out fee to owner contract
+        owner.transfer(fee);
+        // when sending back to sender, remove the fee we just sent to the owner
+        _msgSender.transfer(originalStake + (amountAccrued - fee));
+  
+    }
+    function getStakers(bytes32 _postId) public view returns (address payable[] memory) {
+        return postItems[_postId].stakers;
+    }
+    /**
+         Callable by gateway only, used to pay out the owner with the stakeFeePool money, can only be called after staking round is done.
+         Owner can call this as many times as they want, if they call this & all stakers have closed their stakes their is a possibility that the tipPool may have some money accrued in it,
+         If this is the case that money must also be pushed to the owner and must not be allowed to sit.
+     */
+    function payout(bytes32 _postId, address payable _msgSender) public onlyGateway payable {
+         //require(postItems[_postId].tippingBlockStart > block.number,"Post is still in staking period, wait until tipping period has started."); //removed for demo purposes, put bac in after
+        // check that person is either creator or that is came from the owner. which came from the functioncontract (gateway)
+           require((_msgSender == postItems[_postId].creator || _msgSender == owner),"You are not the owner of this content");
+
+        // require it to be POST owner of the _postId or Huddln
+        //check if there are no stakers to payout, if no stakers then owner should get BOTH pools
+        if ( postItems[_postId].stakersCount == 0 ){
+             uint fullFee = ( postItems[_postId].tipPool + postItems[_postId].stakeFeePool ) * 10/100;
+             // set the amount earned, for historical purposes, both pools minus the fee.
+              postItems[_postId].ownerAmountAccrued = (postItems[_postId].stakeFeePool + postItems[_postId].tipPool) - fullFee;
+             // fees first , from combination of both pools
+             owner.transfer(fullFee);
+
+             // transfer to the owner of post
+             postItems[_postId].creator.transfer(( postItems[_postId].stakeFeePool + postItems[_postId].tipPool ) - fullFee);
+        } else {
+            // this case, handles if there are 1 or more stakers
+             uint fee = postItems[_postId].stakeFeePool * 10/100;
+             postItems[_postId].ownerAmountAccrued = postItems[_postId].stakeFeePool-fee;
+             owner.transfer(fee);
+             postItems[_postId].creator.transfer(postItems[_postId].stakeFeePool-fee);
+        }     
+
+    }
+    /*
+    function getStakeStakingStatus(address _address) public view returns (StakeStakingStatus) {
+        return postStakes[_address].status;
+    }
+    */
+    /*
+        returns the stake object vlaues in a tuple, from a specific post and specific person
+        cannot return a enum so must convert to plain uint before returning
+    */
+      function getStake(bytes32 _postId, address _address) public view returns(uint, uint256, uint256, uint, uint) {
+       return (uint(postItems[_postId].stakes[_address].status),postItems[_postId].stakes[_address].amountStaked,
+       postItems[_postId].stakes[_address].amountAccrued,
+       postItems[_postId].stakes[_address].blockOpened,
+       postItems[_postId].stakes[_address].blockClosed);
+      }
+
+      fallback () external payable {
+        // TODO: Call the call function in the main contract
+        // and forward all funds (msg.value) sent to this contract
+        // and passing in the following data: msg.sender
+      }
+  
+ receive() external payable {
+            // React to receiving ether
+        }
+
 }

@@ -18,6 +18,11 @@ contract Gateway is Owned, Pausable,BasicMetaTransaction {
         bytes32 indexed _postId,
         uint256 _value
     );
+    event FeatureContractUpdate(
+        address indexed _actor,
+        string indexed _action,
+        address indexed _contractAddress
+    );
 
     constructor(address payable _contractAddress) public {
         stakingContractAddress = _contractAddress;
@@ -29,24 +34,9 @@ contract Gateway is Owned, Pausable,BasicMetaTransaction {
     /// ****** Staking Features *******
     function setStakingContract(address payable _contractAddress) public onlyOwner {
         stakingContractAddress = _contractAddress;
+        emit FeatureContractUpdate(msgSender(), "Update", _contractAddress);
     }
-
-     // ONLY OWNER CALLABLE
-    function closePostOwned(bytes32 _postId) public onlyOwner {
-
-        StakingContract sc = StakingContract(stakingContractAddress);
-        // msgSender() is owner of contract which is checked in storage contract.
-        sc.payout(_postId, payable(msgSender()));
-    }
-      // ONLY OWNER CALLABLE
-    function closeStakeOwned(bytes32 contentId) public onlyOwner {
-
-        StakingContract sc = StakingContract(stakingContractAddress);
-        // msgSender() is owner of contract which is checked in storage contract.
-        sc.closeStake(contentId, payable(msgSender()));
-    }
-
-    function createPost(bytes32 _postId, uint256 _postLength) public payable onlyWhenRunning {
+   function createPost(bytes32 _postId, uint256 _postLength) public payable onlyWhenRunning {
         StakingContract sc = StakingContract(stakingContractAddress);
         sc.addPost(
             _postId,
@@ -56,16 +46,30 @@ contract Gateway is Owned, Pausable,BasicMetaTransaction {
 
         emit Post(msgSender(), "Create", _postId, 0);
     }
+     // ONLY OWNER CALLABLE
+    
+    function payoutPostEarnings(bytes32 _postId) public onlyOwner {
 
-    function closePost(bytes32 _postId) public {
-        StakingContract sc = StakingContract(stakingContractAddress);
+       StakingContract sc = StakingContract(stakingContractAddress);
         // send message sender to verify they are the owner
         sc.payout(_postId, payable(msgSender()));
 
-        emit Post(msgSender(), "Closed", _postId, 0);
+        emit Post(msgSender(), "Owner Paidout", _postId, 0);
     }
+      // ONLY OWNER CALLABLE
+      /*
+    function closeStakeOwned(bytes32 contentId) public onlyOwner {
 
-    function closeStake(bytes32 contentId) public {
+        StakingContract sc = StakingContract(stakingContractAddress);
+        // msgSender() is owner of contract which is checked in storage contract.
+        sc.closeStake(contentId, payable(msgSender()));
+    }
+*/
+ 
+    
+   
+
+    function closeStake(bytes32 contentId) public payable {
         StakingContract sc = StakingContract(stakingContractAddress);
 
         sc.closeStake(contentId,  payable(msgSender()));
@@ -78,8 +82,10 @@ contract Gateway is Owned, Pausable,BasicMetaTransaction {
         // require: owners cannot tip into their own post
 
         StakingContract sc = StakingContract(stakingContractAddress);
-        sc.addCreatorTip(_postId, msg.value / 2);
-        sc.addStakerTip(_postId, msg.value / 2);
+       // sc.addCreatorTip(_postId, msg.value / 2);
+       // sc.addStakerTip(_postId, msg.value / 2);
+          sc.addStakerTip(_postId, msg.value );
+
         stakingContractAddress.transfer(msg.value);
 
         emit Post(msgSender(), "Tip", _postId, msg.value);
@@ -96,10 +102,7 @@ contract Gateway is Owned, Pausable,BasicMetaTransaction {
         emit Post(msgSender(), "Stake", _postId, msg.value);
     }
 
-    function getStakes(bytes32 _postId)
-        public
-        view
-        returns (address payable[] memory)
+    function getStakes(bytes32 _postId) public view returns (address payable[] memory)
     {
         StakingContract sc = StakingContract(stakingContractAddress);
         address payable[] memory stakes = sc.getStakers(_postId);
