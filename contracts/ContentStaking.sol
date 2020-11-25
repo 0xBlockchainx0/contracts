@@ -4,7 +4,8 @@ import './abstractions/Pausable.sol';
 import './abstractions/Owned.sol';
 import "./lib/BasicMetaTransaction.sol";
 
-contract StakingContract is Owned {
+contract ContentStaking is Owned {
+    
     enum StakingStatus { Nonexistant, Open, ClosedByStaker, ClosedByHuddln }
     enum PayoutStatus { unpaid, paid }
     enum PostLength { Short, Medium, Long }
@@ -150,7 +151,7 @@ contract StakingContract is Owned {
          Owner can call this as many times as they want, if they call this & all stakers have closed their stakes their is a possibility that the tipPool may have some money accrued in it,
          If this is the case that money must also be pushed to the owner and must not be allowed to sit.
      */
-    function payout(bytes32 _postId, address payable _msgSender) public onlyGateway payable {
+    function claimPostEarnings(bytes32 _postId, address payable _msgSender) public onlyGateway payable {
          //require(postItems[_postId].tippingBlockStart > block.number,"Post is still in staking period, wait until tipping period has started."); //removed for demo purposes, put bac in after
         // check that person is either creator or that is came from the owner. which came from the functioncontract (gateway)
            require((_msgSender == postItems[_postId].creator || _msgSender == owner),"You are not the owner of this content");
@@ -175,6 +176,7 @@ contract StakingContract is Owned {
         }     
 
     }
+    
     /*
     function getStakeStakingStatus(address _address) public view returns (StakeStakingStatus) {
         return postStakes[_address].status;
@@ -191,13 +193,25 @@ contract StakingContract is Owned {
        postItems[_postId].stakes[_address].blockClosed);
       }
 
-      fallback () external payable {
+    // forces payouts of all posts and stakers, used when contract is going to be shutdown.
+   /*
+    function closeDownFeature() public onlyGateway payable {
+        uint mapLength = postItemIds.length;
+
+        for (uint i=0; i<mapLength; i++) {
+            totalValue += mappedUsers[addressIndices[i]];
+        }
+
+    }
+    */
+
+    fallback () external payable {
         // TODO: Call the call function in the main contract
         // and forward all funds (msg.value) sent to this contract
         // and passing in the following data: msg.sender
       }
   
- receive() external payable {
+    receive() external payable {
             // React to receiving ether
         }
 

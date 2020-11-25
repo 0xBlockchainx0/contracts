@@ -6,106 +6,142 @@ import './abstractions/Owned.sol';
 // ****** Meta-Gas
 import "./lib/BasicMetaTransaction.sol";
 // ****** Feature Contracts
-import "./StakingContract.sol";
+import "./ContentStaking.sol";
 
 contract Gateway is Owned, Pausable,BasicMetaTransaction {
-    address payable public stakingContractAddress;
+// ********* FEATURE CONTRACT ADDRESSES *********
+    address payable public contentStakingAddress;
+
+// ********* GLOBAL VAR FEES *********  
     uint256 public fee = 10;
-    // Event types
-    event Post(
+
+// ********* EVENTS *********
+    event ContentPost(
         address indexed _actor,
-        string indexed _action,
+        string _action,
         bytes32 indexed _postId,
         uint256 _value
     );
-    event FeatureContractUpdate(
+    event Feature(
         address indexed _actor,
-        string indexed _action,
+        string  _featureName,
+        string _action,
         address indexed _contractAddress
     );
 
-    constructor(address payable _contractAddress) public {
-        stakingContractAddress = _contractAddress;
+    constructor() public {
+
     }
+
+
+
+
+
+
+
+
+
+
+     // ************************    OWNER ONLY CALLABLE FUNCTIONS     *******************************
+
     function updateFee(uint256 _newFee) public onlyOwner {
         fee = _newFee;
     }
 
-    /// ****** Staking Features *******
-    function setStakingContract(address payable _contractAddress) public onlyOwner {
-        stakingContractAddress = _contractAddress;
-        emit FeatureContractUpdate(msgSender(), "Update", _contractAddress);
+    /// ****** Content Staking Features *******
+
+    // ***** Set Contract Address to lock onto
+    function setContentStaking(address payable _contractAddress) public onlyOwner {
+        contentStakingAddress = _contractAddress;
+
+        emit Feature(msgSender(), "Feature - Content Staking","Updated", _contractAddress);
     }
-   function createPost(bytes32 _postId, uint256 _postLength) public payable onlyWhenRunning {
-        StakingContract sc = StakingContract(stakingContractAddress);
-        sc.addPost(
+    
+    // ***** Force post to payout owner earnings
+    function content_owner_ClaimPostEarnings(bytes32 _postId,address payable _postOwner) public onlyOwner {
+
+        ContentStaking cs = ContentStaking(contentStakingAddress);
+
+        cs.claimPostEarnings(_postId, _postOwner);
+
+        emit ContentPost(msgSender(), "(FORCED) Payout",_postId, 0);
+    }
+
+    // ***** Force close stake of staker
+    function content_CloseStake(bytes32 contentId, address payable _staker) public payable onlyOwner{
+        ContentStaking cs = ContentStaking(contentStakingAddress);
+
+        cs.closeStake(contentId, _staker);
+
+        emit ContentPost(msgSender(), "(FORCED) Closed Stake", contentId, 0);
+    }
+
+
+
+
+
+
+
+
+
+    // ************************    USER CALLABLE FUNCTIONS     *******************************
+
+    // ****** ~~~~~~~~ Content Staking Features ~~~~~~~~ *******
+
+     // _postId - Set this to a unique identifier such as hashed value of content or a UID
+   function content_CreatePost(bytes32 _postId, uint256 _postLength) public payable onlyWhenRunning {
+        ContentStaking cs = ContentStaking(contentStakingAddress);
+        cs.addPost(
             _postId,
            payable(msgSender()),
             uint256(_postLength)
         );
 
-        emit Post(msgSender(), "Create", _postId, 0);
+        emit ContentPost(msgSender(), "Create", _postId, 0);
     }
-     // ONLY OWNER CALLABLE
-    
-    function payoutPostEarnings(bytes32 _postId) public onlyOwner {
+    // owner of post can pull their earnings out of the post, earnings come from the stake fee pool, and if there are no more stakers then also the tipping pool.
+    function content_ClaimPostEarnings(bytes32 _postId) public onlyWhenRunning{
+        ContentStaking cs = ContentStaking(contentStakingAddress);
 
-       StakingContract sc = StakingContract(stakingContractAddress);
-        // send message sender to verify they are the owner
-        sc.payout(_postId, payable(msgSender()));
+        cs.claimPostEarnings(_postId, payable(msgSender()));
 
-        emit Post(msgSender(), "Owner Paidout", _postId, 0);
-    }
-      // ONLY OWNER CALLABLE
-      /*
-    function closeStakeOwned(bytes32 contentId) public onlyOwner {
-
-        StakingContract sc = StakingContract(stakingContractAddress);
-        // msgSender() is owner of contract which is checked in storage contract.
-        sc.closeStake(contentId, payable(msgSender()));
-    }
-*/
- 
-    
-   
-
-    function closeStake(bytes32 contentId) public payable {
-        StakingContract sc = StakingContract(stakingContractAddress);
-
-        sc.closeStake(contentId,  payable(msgSender()));
-
-        emit Post(msgSender(), "Close", contentId, 0);
+        emit ContentPost(msgSender(), "Payout", _postId, 0);
     }
 
-    function tip(bytes32 _postId) public payable {
+
+    function content_CloseStake(bytes32 contentId) public payable onlyWhenRunning{
+        ContentStaking cs = ContentStaking(contentStakingAddress);
+
+        cs.closeStake(contentId,  payable(msgSender()));
+
+        emit ContentPost(msgSender(), "Closed Stake", contentId, 0);
+    }
+
+    function content_Tip(bytes32 _postId) public payable onlyWhenRunning{
         require(msg.value > 0, "Tip amount must be more than 0"); // Cut down on potential spam
         // require: owners cannot tip into their own post
 
-        StakingContract sc = StakingContract(stakingContractAddress);
-       // sc.addCreatorTip(_postId, msg.value / 2);
-       // sc.addStakerTip(_postId, msg.value / 2);
-          sc.addStakerTip(_postId, msg.value );
+        ContentStaking cs = ContentStaking(contentStakingAddress);
+        cs.addStakerTip(_postId, msg.value );
+        contentStakingAddress.transfer(msg.value);
 
-        stakingContractAddress.transfer(msg.value);
-
-        emit Post(msgSender(), "Tip", _postId, msg.value);
+        emit ContentPost(msgSender(), "Tip", _postId, msg.value);
     }
 
-    function placeStake(bytes32 _postId) public payable {
-        // require: owners cannot stake on their own post
+    function content_PlaceStake(bytes32 _postId) public payable onlyWhenRunning{
         require(msg.value > 0, "Stake amount must be more than 0"); // Cut down on potential spam
 
-        StakingContract sc = StakingContract(stakingContractAddress);
-        sc.addStake(_postId, msg.value, payable(msgSender()));
-        stakingContractAddress.transfer(msg.value);
+        ContentStaking cs = ContentStaking(contentStakingAddress);
+        cs.addStake(_postId, msg.value, payable(msgSender()));
+        contentStakingAddress.transfer(msg.value);
 
-        emit Post(msgSender(), "Stake", _postId, msg.value);
+        emit ContentPost(msgSender(), "Stake", _postId, msg.value);
     }
 
-    function getStakes(bytes32 _postId) public view returns (address payable[] memory)
+    function content_GetStakes(bytes32 _postId) public view returns (address payable[] memory)
     {
-        StakingContract sc = StakingContract(stakingContractAddress);
-        address payable[] memory stakes = sc.getStakers(_postId);
+        ContentStaking cs = ContentStaking(contentStakingAddress);
+        address payable[] memory stakes = cs.getStakers(_postId);
 
         return stakes;
     }
