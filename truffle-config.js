@@ -11,7 +11,7 @@ module.exports = {
         provider: () => new HDWalletProvider(PRIVATE_KEY,'https://rpc-mumbai.matic.today'),
         network_id: 80001,
         confirmations: 2,
-        timeoutBlocks: 200,
+        timeoutBlocks: 10000,
         skipDryRun: true
       },
       local: {

@@ -2,7 +2,7 @@
 var GatewayContract = artifacts.require("Gateway");
 var ContentStakingContract = artifacts.require("ContentStaking");
 
-
+const truffleAssert = require('truffle-assertions');
 const Web3 = require('web3');
 
 contract('Gateway', function (accounts) {
@@ -38,11 +38,121 @@ contract('Gateway', function (accounts) {
     //console.log('stakingContract.address',stakingContract.address)
     //let val = await gatewayContract.contentStakingAddress();\
     console.log('test')
-    console.log('show gateawycontract test',await stakingContract.gatewayContract())
+    //console.log('show gateawycontract test',await stakingContract.gatewayContract())
     assert.equal(await gatewayContract.contentStakingAddress(), stakingContract.address, 'Verifies the correct address was updated')
-   // assert.equal(await stakingContract.gatewayContract(), gatewayContract.address, 'Verifies the correct address was updated')
+    // assert.equal(await stakingContract.gatewayContract(), gatewayContract.address, 'Verifies the correct address was updated')
   });
 
+  it("Start/Stop Gateway from Owner", async function () {
+    var stakingContract = await ContentStakingContract.deployed();
+    var gatewayContract = await GatewayContract.deployed();
+    // should be able to set the gateway contract the first time.
+
+    await gatewayContract.stopContract();
+    assert.equal(await gatewayContract.isRunning(), false, 'Verify correct stopping')
+
+    await gatewayContract.startContract();
+
+    assert.equal(await gatewayContract.isRunning(), true, 'Verify starting')
+
+  });
+
+  // ~~~~~~~~~~~~~ SAFTEY MODIFIER CHECKS ~~~~~~~~~~~~~~~~~~~~
+  /**
+   * Ensure only owner can control the stopping and starting of gateway
+   */
+  it("Stop Gateway from Mal Actor", async function () {
+    var stakingContract = await ContentStakingContract.deployed();
+    var gatewayContract = await GatewayContract.deployed();
+    // should be able to set the gateway contract the first time.
+
+
+    await truffleAssert.reverts(
+      gatewayContract.stopContract({ from: accounts[2] }),
+      "Ownable: caller is not the owner"
+    );
+
+  });
+
+   /**
+   * Ensure only owner can control the stopping and starting of gateway
+   */
+  it("Start Gateway from Mal Actor", async function () {
+    var stakingContract = await ContentStakingContract.deployed();
+    var gatewayContract = await GatewayContract.deployed();
+    // should be able to set the gateway contract the first time.
+
+
+    await truffleAssert.reverts(
+      gatewayContract.startContract({ from: accounts[2] }),
+      "Ownable: caller is not the owner"
+    );
+
+  });
+
+    /**
+   * Ensure owner is only person that can set the pointer at contentStaking feature.
+   */
+  it("Set Gateway from Mal Actor", async function () {
+    var stakingContract = await ContentStakingContract.deployed();
+    var gatewayContract = await GatewayContract.deployed();
+    // should be able to set the gateway contract the first time.
+
+
+    await truffleAssert.reverts(
+      gatewayContract.setContentStaking(stakingContract.address,{ from: accounts[2] }),
+      "Ownable: caller is not the owner"
+    );
+
+  });
+
+      /**
+   * Ensure owner is only person that can set the pointer at contentStaking feature.
+   */
+  it("UpdateFee from Mal Actor", async function () {
+    var stakingContract = await ContentStakingContract.deployed();
+    var gatewayContract = await GatewayContract.deployed();
+    // should be able to set the gateway contract the first time.
+
+    await truffleAssert.reverts(
+      gatewayContract.updateFee(20,{ from: accounts[2] }),
+      "Ownable: caller is not the owner"
+    );
+
+  });
+
+   /**
+   * Ensure someone cant steal ownership.
+   */
+  it("TransferOwnership from Mal Actor", async function () {
+    var stakingContract = await ContentStakingContract.deployed();
+    var gatewayContract = await GatewayContract.deployed();
+    // should be able to set the gateway contract the first time.
+
+    await truffleAssert.reverts(
+      gatewayContract.transferOwnership( accounts[2] ,{ from: accounts[2] }),
+      "Ownable: caller is not the owner"
+    );
+
+  });
+  /**
+   * Transfer ownership call from owner, then transfer it back to original owner
+   */
+  it("Transfer Ownership from Owner to new Owner and Back", async function () {
+    var stakingContract = await ContentStakingContract.deployed();
+    var gatewayContract = await GatewayContract.deployed();
+    // should be able to set the gateway contract the first time.
+
+    
+    await gatewayContract.transferOwnership(accounts[2]);
+  
+    assert.equal(await gatewayContract.owner(),accounts[2] , 'Verify new Owner')
+    await gatewayContract.transferOwnership(accounts[0],{ from: accounts[2] });
+  
+    assert.equal(await gatewayContract.owner(),accounts[0] , 'Verify old Owner')
+
+  });
+ 
 
   //********* * Step. 1 * *********
   it("Content Create Post", async function () {
