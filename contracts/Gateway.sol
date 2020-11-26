@@ -79,11 +79,6 @@ contract Gateway is BasicMetaTransaction,Ownable, Pausable {
 
 
 
-
-
-
-
-
     // ************************    USER CALLABLE FUNCTIONS     *******************************
 
     // ****** ~~~~~~~~ Content Staking Features ~~~~~~~~ *******
