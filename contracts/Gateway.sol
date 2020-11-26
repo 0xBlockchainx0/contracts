@@ -2,13 +2,13 @@ pragma solidity 0.6.2;
 
 // ****** Abstracts ******
 import './abstractions/Pausable.sol';
-import './abstractions/Owned.sol';
+import './abstractions/Ownable.sol';
 // ****** Meta-Gas
 import "./lib/BasicMetaTransaction.sol";
 // ****** Feature Contracts
 import "./ContentStaking.sol";
 
-contract Gateway is Owned, Pausable,BasicMetaTransaction {
+contract Gateway is BasicMetaTransaction,Ownable, Pausable {
 // ********* FEATURE CONTRACT ADDRESSES *********
     address payable public contentStakingAddress;
 

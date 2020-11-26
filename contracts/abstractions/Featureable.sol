@@ -1,19 +1,9 @@
 pragma solidity 0.6.2;
 /**
-Owned is primarily used as a class of modifiers to be used in the main contracts to restrict access to certain functionality.
+Modifier to restrict contract calls to gateway only or this context, for use by feature contracts.
  */
-abstract contract Owned {
-    constructor() public { owner = msg.sender; }
-    address payable owner;
+abstract contract Featureable {
     address payable gatewayContract;
-
-    modifier onlyOwner {
-        require(
-            msg.sender == owner,
-            "Only owner can call this function."
-        );
-        _;
-    }
     // modifier for internal calls or function contract calls
      modifier onlyGatewayOrThis {
         require(

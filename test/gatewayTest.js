@@ -37,8 +37,8 @@ contract('Gateway', function (accounts) {
     // console.log('in contract',await gatewayContract.contentStakingAddress())
     //console.log('stakingContract.address',stakingContract.address)
     //let val = await gatewayContract.contentStakingAddress();\
-  console.log('test')
-    console.log('show gateawycontract',await stakingContract.gatewayContract())
+    console.log('test')
+    console.log('show gateawycontract test',await stakingContract.gatewayContract())
     assert.equal(await gatewayContract.contentStakingAddress(), stakingContract.address, 'Verifies the correct address was updated')
    // assert.equal(await stakingContract.gatewayContract(), gatewayContract.address, 'Verifies the correct address was updated')
   });

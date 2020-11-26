@@ -1,8 +1,8 @@
 pragma solidity 0.6.2;
 
-import "./Owned.sol";
+import "./Ownable.sol";
 
-abstract contract Pausable is Owned {
+abstract contract Pausable {
     bool public isRunning;
     modifier onlyWhenRunning {
         require(isRunning, "contract is currently closed");

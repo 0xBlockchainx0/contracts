@@ -1,10 +1,11 @@
 pragma solidity 0.6.2;
 
 import './abstractions/Pausable.sol';
-import './abstractions/Owned.sol';
+import './abstractions/Ownable.sol';
+import './abstractions/Featureable.sol';
 import "./lib/BasicMetaTransaction.sol";
 
-contract ContentStaking is Owned {
+contract ContentStaking is Ownable,Featureable {
     
     enum StakingStatus { Nonexistant, Open, ClosedByStaker, ClosedByHuddln }
     enum PayoutStatus { unpaid, paid }
@@ -49,9 +50,9 @@ contract ContentStaking is Owned {
     bytes32[] public postItemIds;
    
    // ****** Functions only callable by the deployer of this contract ******
-    function setOwner(address payable _newOwner) public onlyOwner {
-        owner = _newOwner;
-    }
+   // function setOwner(address payable _newOwner) public onlyOwner {
+   //     owner = _newOwner;
+   // }
     function setGatewayContract (address payable _newGatewayContract) public onlyOwner{
         gatewayContract = _newGatewayContract;
     }
@@ -138,7 +139,7 @@ contract ContentStaking is Owned {
         postItems[_postId].totalStakedAmount = postItems[_postId].totalStakedAmount - originalStake;
         postItems[_postId].tipPool = postItems[_postId].tipPool - amountAccrued;
         // pay out fee to owner contract
-        owner.transfer(fee);
+        _owner.transfer(fee);
         // when sending back to sender, remove the fee we just sent to the owner
         _msgSender.transfer(originalStake + (amountAccrued - fee));
   
@@ -154,7 +155,7 @@ contract ContentStaking is Owned {
     function claimPostEarnings(bytes32 _postId, address payable _msgSender) public onlyGateway payable {
          //require(postItems[_postId].tippingBlockStart > block.number,"Post is still in staking period, wait until tipping period has started."); //removed for demo purposes, put bac in after
         // check that person is either creator or that is came from the owner. which came from the functioncontract (gateway)
-           require((_msgSender == postItems[_postId].creator || _msgSender == owner),"You are not the owner of this content");
+           require((_msgSender == postItems[_postId].creator || _msgSender == _owner),"You are not the owner of this content");
 
         // require it to be POST owner of the _postId or Huddln
         //check if there are no stakers to payout, if no stakers then owner should get BOTH pools
@@ -163,7 +164,7 @@ contract ContentStaking is Owned {
              // set the amount earned, for historical purposes, both pools minus the fee.
               postItems[_postId].ownerAmountAccrued = (postItems[_postId].stakeFeePool + postItems[_postId].tipPool) - fullFee;
              // fees first , from combination of both pools
-             owner.transfer(fullFee);
+             _owner.transfer(fullFee);
 
              // transfer to the owner of post
              postItems[_postId].creator.transfer(( postItems[_postId].stakeFeePool + postItems[_postId].tipPool ) - fullFee);
@@ -171,7 +172,7 @@ contract ContentStaking is Owned {
             // this case, handles if there are 1 or more stakers
              uint fee = postItems[_postId].stakeFeePool * 10/100;
              postItems[_postId].ownerAmountAccrued = postItems[_postId].stakeFeePool-fee;
-             owner.transfer(fee);
+             _owner.transfer(fee);
              postItems[_postId].creator.transfer(postItems[_postId].stakeFeePool-fee);
         }     
 
