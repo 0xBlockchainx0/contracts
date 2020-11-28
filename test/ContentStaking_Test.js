@@ -19,315 +19,67 @@ contract('ContentStaking', function (accounts) {
   */
   let tryCatch = require("./exceptions.js").tryCatch;
   let errTypes = require("./exceptions.js").errTypes;
-  let postId = Web3.utils.fromAscii("test");
 
 
-  // Set Gateway to be linked to the Stakign contract
-  //********* * Step. 0 * *********
 
-  it("Link The Gateway <-> Staking Contracts", async function () {
+  // Scenario 1:
+  /**
+   *  Must also check post object members at the end to verify its correct.
+   * 1.Create post
+   * 2. Stakers Stake
+   * 3. owner claims earnings.
+   * 4. stakers all close stakes.
+   * 
+   */
+
+  it("Scenario 1", async function () {
+
     var stakingContract = await ContentStakingContract.deployed();
     var gatewayContract = await GatewayContract.deployed();
+
+    let postId = Web3.utils.fromAscii("test-3");
+
     // should be able to set the gateway contract the first time.
     await gatewayContract.setContentStaking(stakingContract.address);
     await stakingContract.setGatewayContract(gatewayContract.address);
     // Start the gateway Contract, default is paused
     await gatewayContract.startContract()
-    //owner balance
-    // console.log('in contract',await gatewayContract.contentStakingAddress())
-    //console.log('stakingContract.address',stakingContract.address)
-    //let val = await gatewayContract.contentStakingAddress();\
-  
-    //console.log('show gateawycontract test',await stakingContract.gatewayContract())
-    assert.equal(await gatewayContract.contentStakingAddress(), stakingContract.address, 'Verifies the correct address was updated')
 
-    assert.equal(await gatewayContract.contentStakingAddress(), stakingContract.address, 'Verifies the correct address was updated')
-    // assert.equal(await stakingContract.gatewayContract(), gatewayContract.address, 'Verifies the correct address was updated')
-  });
+    // ~~~~~~~~~ 1. Create POST ~~~~~~~~~
+    await gatewayContract.content_CreatePost(postId, 0);
 
-  it("Start/Stop Gateway from Owner", async function () {
-    var stakingContract = await ContentStakingContract.deployed();
-    var gatewayContract = await GatewayContract.deployed();
-    // should be able to set the gateway contract the first time.
+    //Check the post object now storageContract.methods.postItems(postID_Hash_append).call();
+    let postObject = await stakingContract.postItems(postId);
+    // parse postObject to decimals for readability
+    postObject = {
+      creator: postObject.creator,
+      creatorPayoutStatus: Web3.utils.hexToNumber(postObject.creatorPayoutStatus),
+      tipPool: Web3.utils.hexToNumber(postObject.tipPool),
+      stakeFeePool: Web3.utils.hexToNumber(postObject.stakeFeePool),
+      creatorEarningsAmount: Web3.utils.hexToNumber(postObject.creatorEarningsAmount),
+      totalStakedAmount: Web3.utils.hexToNumber(postObject.totalStakedAmount),
+      createdAtBlock: Web3.utils.hexToNumber(postObject.createdAtBlock),
+      tippingBlockStart: Web3.utils.hexToNumber(postObject.tippingBlockStart),
+      stakersCount: Web3.utils.hexToNumber(postObject.stakersCount),
+      stakesOpenCount: Web3.utils.hexToNumber(postObject.stakesOpenCount),
+    };
+    console.log('\n\n')
+    console.log('> New Post Created -> ', postObject);
+    console.log('\n\n')
+    //assert.equal(await gatewayContract.contentStakingAddress(), stakingContract.address, 'Verifies the correct address was updated')
 
-    await gatewayContract.stopContract();
-    assert.equal(await gatewayContract.isRunning(), false, 'Verify correct stopping')
-
-    await gatewayContract.startContract();
-
-    assert.equal(await gatewayContract.isRunning(), true, 'Verify starting')
-
-  });
-
-  // ~~~~~~~~~~~~~ SAFTEY MODIFIER CHECKS ~~~~~~~~~~~~~~~~~~~~
-  /**
-   * Ensure only owner can control the stopping and starting of gateway
-   */
-  it("Stop Gateway from Mal Actor", async function () {
-    var stakingContract = await ContentStakingContract.deployed();
-    var gatewayContract = await GatewayContract.deployed();
-    // should be able to set the gateway contract the first time.
-
-
-    await truffleAssert.reverts(
-      gatewayContract.stopContract({ from: accounts[2] }),
-      "Ownable: caller is not the owner"
-    );
-
-  });
-
-   /**
-   * Ensure only owner can control the stopping and starting of gateway
-   */
-  it("Start Gateway from Mal Actor", async function () {
-    var stakingContract = await ContentStakingContract.deployed();
-    var gatewayContract = await GatewayContract.deployed();
-    // should be able to set the gateway contract the first time.
-
-
-    await truffleAssert.reverts(
-      gatewayContract.startContract({ from: accounts[2] }),
-      "Ownable: caller is not the owner"
-    );
-
-  });
-
-    /**
-   * Ensure owner is only person that can set the pointer at contentStaking feature.
-   */
-  it("Set Gateway from Mal Actor", async function () {
-    var stakingContract = await ContentStakingContract.deployed();
-    var gatewayContract = await GatewayContract.deployed();
-    // should be able to set the gateway contract the first time.
-
-
-    await truffleAssert.reverts(
-      gatewayContract.setContentStaking(stakingContract.address,{ from: accounts[2] }),
-      "Ownable: caller is not the owner"
-    );
-
-  });
-
-      /**
-   * Ensure owner is only person that can set the pointer at contentStaking feature.
-   */
-  it("UpdateFee from Mal Actor", async function () {
-    var stakingContract = await ContentStakingContract.deployed();
-    var gatewayContract = await GatewayContract.deployed();
-    // should be able to set the gateway contract the first time.
-
-    await truffleAssert.reverts(
-      gatewayContract.updateFee(20,{ from: accounts[2] }),
-      "Ownable: caller is not the owner"
-    );
-
-  });
-
-   /**
-   * Ensure someone cant steal ownership.
-   */
-  it("TransferOwnership from Mal Actor", async function () {
-    var stakingContract = await ContentStakingContract.deployed();
-    var gatewayContract = await GatewayContract.deployed();
-    // should be able to set the gateway contract the first time.
-
-    await truffleAssert.reverts(
-      gatewayContract.transferOwnership( accounts[2] ,{ from: accounts[2] }),
-      "Ownable: caller is not the owner"
-    );
-
-  });
-  /**
-   * Transfer ownership call from owner, then transfer it back to original owner
-   */
-  it("Transfer Ownership from Owner to new Owner and Back", async function () {
-    var stakingContract = await ContentStakingContract.deployed();
-    var gatewayContract = await GatewayContract.deployed();
-    // should be able to set the gateway contract the first time.
-
-    
-    await gatewayContract.transferOwnership(accounts[2]);
-  
-    assert.equal(await gatewayContract.owner(),accounts[2] , 'Verify new Owner')
-    await gatewayContract.transferOwnership(accounts[0],{ from: accounts[2] });
-  
-    assert.equal(await gatewayContract.owner(),accounts[0] , 'Verify old Owner')
-
-  });
- 
-
-  //********* * Step. 1 * *********
-  it("Content Create Post", async function () {
-    var stakingContract = await ContentStakingContract.deployed();
-    var gatewayContract = await GatewayContract.deployed();
-
-    // should be able to set the gateway contract the first time.
-    //0x9F86D081884C7D659A2FEAA0C55AD015A3BF4F1B2B0B822CD15D6C15B0F00A08 === test
-    console.log(await gatewayContract.content_CreatePost(postId, 0));
-
-  });
-  //********* * Step. 2 * *********
-  it("Add 1 Staker to Post", async function () {
-    var stakingContract = await ContentStakingContract.deployed();
-    var gatewayContract = await GatewayContract.deployed();
-
-    // should be able to set the gateway contract the first time.
-    //0x9F86D081884C7D659A2FEAA0C55AD015A3BF4F1B2B0B822CD15D6C15B0F00A08 === test
-    console.log(await gatewayContract.placeStake(postId,
-      {
-        from: accounts[1],
-        value: 1000000000000000000
-      }
-    ));
-    console.log('staker1 staked -> ' + web3.utils.fromWei('1000000000000000000', 'ether'));
-
-  });
-
-  it("Add 2 Staker to Post", async function () {
-    var stakingContract = await ContentStakingContract.deployed();
-    var gatewayContract = await GatewayContract.deployed();
-
-    // should be able to set the gateway contract the first time.
-    //0x9F86D081884C7D659A2FEAA0C55AD015A3BF4F1B2B0B822CD15D6C15B0F00A08 === test
-    /*
-    await tryCatch(gatewayContract.placeStake('0x9F86D081884C7D659A2FEAA0C55AD015A3BF4F1B2B0B822CD15D6C15B0F00A08',
-   {
-      from: accounts[2],
+   // console.log('TESTING',await stakingContract.postItems(postId).stakes[_sender] );
+   console.log('TESTING',await stakingContract.getStake(postId,accounts[1]))
+    // ~~~~~~~~~ 2. Stakers Added ~~~~~~~~~
+    await gatewayContract.content_PlaceStake(postId, {
+      from: accounts[1],
       value: 1000000000000000000
-    }), errTypes.revert);
+    });
+    console.log('TESTING',await stakingContract.getStake(postId,accounts[1]))
+
     
-    */
-    console.log(await gatewayContract.placeStake(postId,
-      {
-        from: accounts[2],
-        value: 1000000000000000000
-      }
-    ));
-    console.log('staker2 staked -> ' + web3.utils.fromWei('1000000000000000000', 'ether'));
-  });
-
-
-  it("Add 3 Staker to Post", async function () {
-    var stakingContract = await ContentStakingContract.deployed();
-    var gatewayContract = await GatewayContract.deployed();
-
-
-    console.log(await gatewayContract.placeStake(postId,
-      {
-        from: accounts[3],
-        value: 1000000000000000000
-      }
-    ));
-    console.log('staker3 staked -> ' + web3.utils.fromWei('1000000000000000000', 'ether'));
 
   });
-  //********* * Step. 3 * ********* 
-  //Verify correctness of past operations
-
-  it("Verify Staking worked", async function () {
-    var stakingContract = await ContentStakingContract.deployed();
-    var gatewayContract = await GatewayContract.deployed();
-
-
-    console.log(await stakingContract.postItems.call(postId));
-    // Do math checks here
-    /// get list of stakers , loop and pull each stake out using getStake(), look at struct and verify math is correct
-    // check statuses of stakes.
-  });
-
-  //********* * Step. 4 * ********* 
-  //Tips come in
-
-  it("Tippers tip on post", async function () {
-    var stakingContract = await ContentStakingContract.deployed();
-    var gatewayContract = await GatewayContract.deployed();
-
-
-    console.log(await gatewayContract.tip(postId,
-      {
-        from: accounts[4],
-        value: 10000000000000000
-      }
-    ));
-    console.log('Tipper 2 tips -> ' + web3.utils.fromWei('10000000000000000', 'ether'));
-    console.log(await gatewayContract.tip(postId,
-      {
-        from: accounts[5],
-        value: 500000000000000000
-      }
-    ));
-    console.log('Tipper 2 tips -> ' + web3.utils.fromWei('500000000000000000', 'ether'));
-
-
-    console.log(await gatewayContract.tip(postId,
-      {
-        from: accounts[6],
-        value: 80000000000000000
-      }
-    ));
-    console.log('Tipper 3 tips -> ' + web3.utils.fromWei('80000000000000000', 'ether'));
-
-  });
-
-  //********* * Step. 5 * ********* 
-  // Owner removes earnings
-  it("Owner removes earnings", async function () {
-    var stakingContract = await ContentStakingContract.deployed();
-    var gatewayContract = await GatewayContract.deployed();
-
-    // should be able to set the gateway contract the first time.
-    //0x9F86D081884C7D659A2FEAA0C55AD015A3BF4F1B2B0B822CD15D6C15B0F00A08 === test
-    console.log(await gatewayContract.payoutPostEarnings(postId));
-
-
-    let balance = await web3.eth.getBalance(accounts[0])
-    console.log("balance after pulling earnings  " + web3.utils.fromWei(balance, 'ether'))
-    let postID = await stakingContract.postItems.call(postId); //bn
-    console.log('Check manually the earnings from ownerAccrued', postID)
-
-
-  });
-
-  //********* * Step. 6 * ********* 
-  // Stakers remove earnings
-  it("Stakers removes earnings", async function () {
-    var stakingContract = await ContentStakingContract.deployed();
-    var gatewayContract = await GatewayContract.deployed();
-
-    // should be able to set the gateway contract the first time.
-    //0x9F86D081884C7D659A2FEAA0C55AD015A3BF4F1B2B0B822CD15D6C15B0F00A08 === test
-    console.log(await gatewayContract.closeStake(postId,
-      {
-        from: accounts[1]
-
-      }
-    ));
-    let balance1 = await web3.eth.getBalance(accounts[1])
-    console.log("staker 1 balance after pulling earnings  " + web3.utils.fromWei(balance1, 'ether'))
-    console.log(await gatewayContract.closeStake(postId,
-      {
-        from: accounts[2]
-
-      }
-    ));
-    let balance2 = await web3.eth.getBalance(accounts[2])
-    console.log("staker 2 balance after pulling earnings  " + web3.utils.fromWei(balance2, 'ether'))
-    console.log(await gatewayContract.closeStake(postId,
-      {
-        from: accounts[3]
-
-      }
-    ));
-    let balance3 = await web3.eth.getBalance(accounts[3])
-    console.log("staker 3 balance after pulling earnings  " + web3.utils.fromWei(balance3, 'ether'))
-
-
-
-
-
-
-  });
-
 
 
 

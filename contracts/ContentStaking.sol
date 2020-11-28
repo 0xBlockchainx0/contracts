@@ -12,13 +12,8 @@ contract ContentStaking is Ownable,Featureable {
     enum PostLength { Short, Medium, Long }
 
 
-    event Post(
-        address indexed _actor,
-        string indexed _action,
-        bytes32 indexed _postId,
-        uint256 _value
-    );
     struct Stake {
+        bool initialized;
         StakingStatus status;
         uint256 amountStaked;
         uint256 amountAccrued;
@@ -27,6 +22,7 @@ contract ContentStaking is Ownable,Featureable {
     }
 
     struct PostItem {
+        bool initialized;
         address payable creator;
 
         PayoutStatus creatorPayoutStatus;
@@ -61,12 +57,8 @@ contract ContentStaking is Ownable,Featureable {
      // ~ 6 hours 10800 -> 0x2a30
      // ~24 hours 43200 -> 0xA8C0
     function addPost(bytes32 _postId, address payable _creator, uint256 _postLength) public onlyGateway {
-        // loop is bad design instead check map for object and look at owner see if 000 if its that then its new and good, if not its bad.
-        for (uint256 index = 0; index < postItemIds.length; index++) {
-            if (postItemIds[index] == _postId) {
-                revert("Post ID already exists");
-            }
-        }
+        require(postItems[_postId].initialized == false,"Post ID already exists");
+       
         address payable[] memory tempAddressArray = new address payable[](0);
         uint intPostLength;
         if (_postLength == uint(PostLength.Short)) {
@@ -78,6 +70,7 @@ contract ContentStaking is Ownable,Featureable {
         }
 
         postItems[_postId] = PostItem({
+            initialized: true, //Set so we can check from mapping if this has been used or not.
             creator: _creator,
             tipPool:0,
             stakeFeePool:0,
@@ -90,7 +83,7 @@ contract ContentStaking is Ownable,Featureable {
             tippingBlockStart: block.number + intPostLength,
 
             stakersCount: 0,
-            stakesOpenCount:0,
+            stakesOpenCount:0
             
         });
         postItemIds.push(_postId);
@@ -109,8 +102,12 @@ contract ContentStaking is Ownable,Featureable {
     }
     function addStake(bytes32 _postId, uint amount, address payable _sender) public onlyGateway{
        // require(postItems[_postId].status == StakingStatus.Open,"Post is not open for staking");
+       // do not let someone add stake thats already staked.
+        require(postItems[_postId].initialized == true,"Post ID does not exist");
         require(postItems[_postId].tippingBlockStart > block.number,"Post is not open for staking");
+        require((postItems[_postId].stakes[_sender]).initialized == false ,"You are already staked!!!");
         require(_sender != (postItems[_postId].creator),"You cannot stake on your own post");
+
         //require(postItems[_postId].stakersCount <= 500,"Max stakers reached (500)");amountAccrued * 10/100;
         uint fee = amount * 10/100; // find fee
         amount = amount - fee; // remove fee from the amount staked.
@@ -119,8 +116,11 @@ contract ContentStaking is Ownable,Featureable {
         postItems[_postId].stakesOpenCount =  postItems[_postId].stakesOpenCount+1;// new count for watching amount of stakes open
         postItems[_postId].totalStakedAmount = postItems[_postId].totalStakedAmount + amount;
         postItems[_postId].stakersCount = postItems[_postId].stakersCount+1;
+        
         postItems[_postId].stakers.push(_sender);
+
         postItems[_postId].stakes[_sender] = Stake({
+            initialized: true,
             status: StakingStatus.Open,
             amountStaked: amount,
             amountAccrued: 0x0,
