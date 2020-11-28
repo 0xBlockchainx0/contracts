@@ -35,7 +35,7 @@ contract ContentStaking is Ownable,Featureable {
 
         uint256 stakeFeePool; // Stakers must pay 10% of stake directly to the owner's fee pool, the rest goes toward stake.
 
-        uint256 ownerAmountAccrued; // keeps track of how much owner has pulled out (historical)
+        uint256 creatorEarningsAmount; // keeps track of how much owner has pulled out (historical)
 
         address payable[] stakers;
         mapping (address => Stake) stakes;
@@ -44,6 +44,7 @@ contract ContentStaking is Ownable,Featureable {
         uint tippingBlockStart;
         //track amount of stakers without having to pull down array
         uint stakersCount;
+        uint stakesOpenCount; // track all open amount so we don't need to search through mapping (expensive)
     }
 
     mapping(bytes32 => PostItem) public postItems;
@@ -60,6 +61,7 @@ contract ContentStaking is Ownable,Featureable {
      // ~ 6 hours 10800 -> 0x2a30
      // ~24 hours 43200 -> 0xA8C0
     function addPost(bytes32 _postId, address payable _creator, uint256 _postLength) public onlyGateway {
+        // loop is bad design instead check map for object and look at owner see if 000 if its that then its new and good, if not its bad.
         for (uint256 index = 0; index < postItemIds.length; index++) {
             if (postItemIds[index] == _postId) {
                 revert("Post ID already exists");
@@ -79,13 +81,17 @@ contract ContentStaking is Ownable,Featureable {
             creator: _creator,
             tipPool:0,
             stakeFeePool:0,
-            ownerAmountAccrued:0,
+            creatorEarningsAmount:0,
             stakers: tempAddressArray,
+          
             totalStakedAmount: 0,
             creatorPayoutStatus: PayoutStatus.unpaid,
             createdAtBlock: block.number,
             tippingBlockStart: block.number + intPostLength,
-            stakersCount: 0
+
+            stakersCount: 0,
+            stakesOpenCount:0,
+            
         });
         postItemIds.push(_postId);
     }
@@ -110,6 +116,7 @@ contract ContentStaking is Ownable,Featureable {
         amount = amount - fee; // remove fee from the amount staked.
 
         postItems[_postId].stakeFeePool = postItems[_postId].stakeFeePool + fee; //add fee for owners earnings 
+        postItems[_postId].stakesOpenCount =  postItems[_postId].stakesOpenCount+1;// new count for watching amount of stakes open
         postItems[_postId].totalStakedAmount = postItems[_postId].totalStakedAmount + amount;
         postItems[_postId].stakersCount = postItems[_postId].stakersCount+1;
         postItems[_postId].stakers.push(_sender);
@@ -134,6 +141,7 @@ contract ContentStaking is Ownable,Featureable {
             //pay fee
         uint fee = amountAccrued * 10/100;
         postItems[_postId].stakes[_msgSender].status = StakingStatus.ClosedByStaker;
+        postItems[_postId].stakesOpenCount =  postItems[_postId].stakesOpenCount-1;// new count for watching amount of stakes open
         postItems[_postId].stakes[_msgSender].blockClosed = block.number;
         postItems[_postId].stakes[_msgSender].amountAccrued = amountAccrued - fee;
         postItems[_postId].totalStakedAmount = postItems[_postId].totalStakedAmount - originalStake;
@@ -158,11 +166,11 @@ contract ContentStaking is Ownable,Featureable {
            require((_msgSender == postItems[_postId].creator || _msgSender == _owner),"You are not the owner of this content");
 
         // require it to be POST owner of the _postId or Huddln
-        //check if there are no stakers to payout, if no stakers then owner should get BOTH pools
-        if ( postItems[_postId].stakersCount == 0 ){
+        //check if there are any stakes open, it will be 0 if there are no stakers or if all the stakers have closed their stakes
+        if ( postItems[_postId].stakesOpenCount == 0 ){
              uint fullFee = ( postItems[_postId].tipPool + postItems[_postId].stakeFeePool ) * 10/100;
              // set the amount earned, for historical purposes, both pools minus the fee.
-              postItems[_postId].ownerAmountAccrued = (postItems[_postId].stakeFeePool + postItems[_postId].tipPool) - fullFee;
+              postItems[_postId].creatorEarningsAmount = postItems[_postId].creatorEarningsAmount + ((postItems[_postId].stakeFeePool + postItems[_postId].tipPool) - fullFee);
              // fees first , from combination of both pools
              _owner.transfer(fullFee);
 
@@ -171,7 +179,7 @@ contract ContentStaking is Ownable,Featureable {
         } else {
             // this case, handles if there are 1 or more stakers
              uint fee = postItems[_postId].stakeFeePool * 10/100;
-             postItems[_postId].ownerAmountAccrued = postItems[_postId].stakeFeePool-fee;
+             postItems[_postId].creatorEarningsAmount = postItems[_postId].creatorEarningsAmount + (postItems[_postId].stakeFeePool-fee);
              _owner.transfer(fee);
              postItems[_postId].creator.transfer(postItems[_postId].stakeFeePool-fee);
         }     

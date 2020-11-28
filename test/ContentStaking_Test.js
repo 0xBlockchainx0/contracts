@@ -5,7 +5,7 @@ var ContentStakingContract = artifacts.require("ContentStaking");
 const truffleAssert = require('truffle-assertions');
 const Web3 = require('web3');
 
-contract('Gateway', function (accounts) {
+contract('ContentStaking', function (accounts) {
 
   /*
       Scenario 1 (Happy Path): 
@@ -37,8 +37,10 @@ contract('Gateway', function (accounts) {
     // console.log('in contract',await gatewayContract.contentStakingAddress())
     //console.log('stakingContract.address',stakingContract.address)
     //let val = await gatewayContract.contentStakingAddress();\
-    console.log('test')
+  
     //console.log('show gateawycontract test',await stakingContract.gatewayContract())
+    assert.equal(await gatewayContract.contentStakingAddress(), stakingContract.address, 'Verifies the correct address was updated')
+
     assert.equal(await gatewayContract.contentStakingAddress(), stakingContract.address, 'Verifies the correct address was updated')
     // assert.equal(await stakingContract.gatewayContract(), gatewayContract.address, 'Verifies the correct address was updated')
   });

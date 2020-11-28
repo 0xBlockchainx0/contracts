@@ -114,6 +114,8 @@ contract('Gateway', function (accounts) {
       gatewayContract.updateFee(20,{ from: accounts[2] }),
       "Ownable: caller is not the owner"
     );
+   
+  // console.log('NEW FEE', Web3.utils.hexToNumber(await gatewayContract.fee()))
 
   });
 
