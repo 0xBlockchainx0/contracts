@@ -8,7 +8,6 @@ import "./lib/BasicMetaTransaction.sol";
 contract ContentStaking is Ownable,Featureable {
     
     enum StakingStatus { Nonexistant, Open, ClosedByStaker, ClosedByHuddln }
-    enum PayoutStatus { unpaid, paid }
     enum PostLength { Short, Medium, Long }
 
 
@@ -25,7 +24,7 @@ contract ContentStaking is Ownable,Featureable {
         bool initialized;
         address payable creator;
 
-        PayoutStatus creatorPayoutStatus;
+        
         // Pools
         uint256 tipPool; // all tips go to this pool
 
@@ -56,7 +55,7 @@ contract ContentStaking is Ownable,Featureable {
      // ~ 1 hour is 1800 blocks -> 0x708
      // ~ 6 hours 10800 -> 0x2a30
      // ~24 hours 43200 -> 0xA8C0
-    function addPost(bytes32 _postId, address payable _creator, uint256 _postLength) public onlyGateway {
+    function createPost(bytes32 _postId, address payable _creator, uint256 _postLength) public onlyGateway {
         require(postItems[_postId].initialized == false,"Post ID already exists");
        
         address payable[] memory tempAddressArray = new address payable[](0);
@@ -78,7 +77,7 @@ contract ContentStaking is Ownable,Featureable {
             stakers: tempAddressArray,
           
             totalStakedAmount: 0,
-            creatorPayoutStatus: PayoutStatus.unpaid,
+            
             createdAtBlock: block.number,
             tippingBlockStart: block.number + intPostLength,
 
@@ -95,17 +94,18 @@ contract ContentStaking is Ownable,Featureable {
   
 
     function addStakerTip(bytes32 _postId, uint amount) public onlyGateway {
+        require(postItems[_postId].initialized == true,"Post ID does not exist");
        // require(postItems[_postId].status == StakingStatus.Open,"Post is not open for tipping");
         //require(postItems[_postId].tippingBlockStart <= block.number,"Post is not open for tipping"); // REMOVED FOR PRESENTATION PURPOSES, PUT BACK IN AFTER
 
         postItems[_postId].tipPool = postItems[_postId].tipPool + amount;
     }
-    function addStake(bytes32 _postId, uint amount, address payable _sender) public onlyGateway{
+    function placeStake(bytes32 _postId, uint amount, address payable _sender) public onlyGateway{
        // require(postItems[_postId].status == StakingStatus.Open,"Post is not open for staking");
        // do not let someone add stake thats already staked.
         require(postItems[_postId].initialized == true,"Post ID does not exist");
         require(postItems[_postId].tippingBlockStart > block.number,"Post is not open for staking");
-        require((postItems[_postId].stakes[_sender]).initialized == false ,"You are already staked!!!");
+        require((postItems[_postId].stakes[_sender]).initialized == false ,"You are already staked");
         require(_sender != (postItems[_postId].creator),"You cannot stake on your own post");
 
         //require(postItems[_postId].stakersCount <= 500,"Max stakers reached (500)");amountAccrued * 10/100;
@@ -130,9 +130,10 @@ contract ContentStaking is Ownable,Featureable {
         
     }
   
-    function closeStake(bytes32 _postId, address payable _msgSender) public onlyGatewayOrThis {
+    function closeStake(bytes32 _postId, address payable _msgSender) public onlyGateway {
         //require(postItems[_postId].tippingBlockStart > block.number,"Post is still in staking period, wait until tipping period has started."); //removed for demo purposes, put bac in after
-
+        require(postItems[_postId].initialized == true,"Post ID does not exist");
+        require((postItems[_postId].stakes[_msgSender]).initialized == true ,"You are not staked on this post");
         require(postItems[_postId].stakes[_msgSender].status == StakingStatus.Open,"Stake is already closed");
         
     
@@ -195,8 +196,8 @@ contract ContentStaking is Ownable,Featureable {
         returns the stake object vlaues in a tuple, from a specific post and specific person
         cannot return a enum so must convert to plain uint before returning
     */
-      function getStake(bytes32 _postId, address _address) public view returns(uint, uint256, uint256, uint, uint) {
-       return (uint(postItems[_postId].stakes[_address].status),postItems[_postId].stakes[_address].amountStaked,
+      function getStake(bytes32 _postId, address _address) public view returns(bool,uint, uint256, uint256, uint, uint) {
+       return (postItems[_postId].stakes[_address].initialized,uint(postItems[_postId].stakes[_address].status),postItems[_postId].stakes[_address].amountStaked,
        postItems[_postId].stakes[_address].amountAccrued,
        postItems[_postId].stakes[_address].blockOpened,
        postItems[_postId].stakes[_address].blockClosed);

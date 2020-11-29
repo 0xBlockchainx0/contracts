@@ -58,7 +58,7 @@ contract Gateway is BasicMetaTransaction,Ownable, Pausable {
     }
     
     // ***** Force post to payout owner earnings
-    function content_owner_ClaimPostEarnings(bytes32 _postId,address payable _postOwner) public onlyOwner {
+    function content_owner_claimPostEarnings(bytes32 _postId,address payable _postOwner) public onlyOwner {
 
         ContentStaking cs = ContentStaking(contentStakingAddress);
 
@@ -68,12 +68,12 @@ contract Gateway is BasicMetaTransaction,Ownable, Pausable {
     }
 
     // ***** Force close stake of staker
-    function content_CloseStake(bytes32 contentId, address payable _staker) public payable onlyOwner{
+    function content__owner_closeStake(bytes32 _postId, address payable _staker) public payable onlyOwner{
         ContentStaking cs = ContentStaking(contentStakingAddress);
 
-        cs.closeStake(contentId, _staker);
+        cs.closeStake(_postId, _staker);
 
-        emit ContentPost(msgSender(), "(FORCED) Closed Stake", contentId, 0);
+        emit ContentPost(msgSender(), "(FORCED) Closed Stake", _postId, 0);
     }
 
 
@@ -84,9 +84,9 @@ contract Gateway is BasicMetaTransaction,Ownable, Pausable {
     // ****** ~~~~~~~~ Content Staking Features ~~~~~~~~ *******
 
      // _postId - Set this to a unique identifier such as hashed value of content or a UID
-   function content_CreatePost(bytes32 _postId, uint256 _postLength) public payable onlyWhenRunning {
+   function content_createPost(bytes32 _postId, uint256 _postLength) public payable onlyWhenRunning {
         ContentStaking cs = ContentStaking(contentStakingAddress);
-        cs.addPost(
+        cs.createPost(
             _postId,
            payable(msgSender()),
             uint256(_postLength)
@@ -95,7 +95,7 @@ contract Gateway is BasicMetaTransaction,Ownable, Pausable {
         emit ContentPost(msgSender(), "Create", _postId, 0);
     }
     // owner of post can pull their earnings out of the post, earnings come from the stake fee pool, and if there are no more stakers then also the tipping pool.
-    function content_ClaimPostEarnings(bytes32 _postId) public onlyWhenRunning{
+    function content_claimPostEarnings(bytes32 _postId) public onlyWhenRunning{
         ContentStaking cs = ContentStaking(contentStakingAddress);
 
         cs.claimPostEarnings(_postId, payable(msgSender()));
@@ -104,15 +104,15 @@ contract Gateway is BasicMetaTransaction,Ownable, Pausable {
     }
 
 
-    function content_CloseStake(bytes32 contentId) public payable onlyWhenRunning{
+    function content_closeStake(bytes32 _postId) public payable onlyWhenRunning{
         ContentStaking cs = ContentStaking(contentStakingAddress);
 
-        cs.closeStake(contentId,  payable(msgSender()));
+        cs.closeStake(_postId,  payable(msgSender()));
 
-        emit ContentPost(msgSender(), "Closed Stake", contentId, 0);
+        emit ContentPost(msgSender(), "Closed Stake", _postId, 0);
     }
 
-    function content_Tip(bytes32 _postId) public payable onlyWhenRunning{
+    function content_tip(bytes32 _postId) public payable onlyWhenRunning{
         require(msg.value > 0, "Tip amount must be more than 0"); // Cut down on potential spam
         // require: owners cannot tip into their own post
 
@@ -123,17 +123,17 @@ contract Gateway is BasicMetaTransaction,Ownable, Pausable {
         emit ContentPost(msgSender(), "Tip", _postId, msg.value);
     }
 
-    function content_PlaceStake(bytes32 _postId) public payable onlyWhenRunning{
+    function content_placeStake(bytes32 _postId) public payable onlyWhenRunning{
         require(msg.value > 0, "Stake amount must be more than 0"); // Cut down on potential spam
 
         ContentStaking cs = ContentStaking(contentStakingAddress);
-        cs.addStake(_postId, msg.value, payable(msgSender()));
+        cs.placeStake(_postId, msg.value, payable(msgSender()));
         contentStakingAddress.transfer(msg.value);
 
         emit ContentPost(msgSender(), "Stake", _postId, msg.value);
     }
 
-    function content_GetStakes(bytes32 _postId) public view returns (address payable[] memory)
+    function content_getStakes(bytes32 _postId) public view returns (address payable[] memory)
     {
         ContentStaking cs = ContentStaking(contentStakingAddress);
         address payable[] memory stakes = cs.getStakers(_postId);
