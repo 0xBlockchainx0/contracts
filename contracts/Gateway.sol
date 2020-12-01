@@ -60,6 +60,7 @@ contract Gateway is BasicMetaTransaction,Ownable, Pausable {
     // ***** Force post to payout owner earnings
     function content_owner_claimPostEarnings(bytes32 _postId,address payable _postOwner) public onlyOwner {
 
+
         ContentStaking cs = ContentStaking(contentStakingAddress);
 
         cs.claimPostEarnings(_postId, _postOwner);
@@ -139,5 +140,10 @@ contract Gateway is BasicMetaTransaction,Ownable, Pausable {
         address payable[] memory stakes = cs.getStakers(_postId);
 
         return stakes;
+    }
+    //TODO make this accept a generic address and do a call to that address shutdownFeature
+    function contentStaking_closeDownFeature() public onlyOwner {
+         ContentStaking cs = ContentStaking(contentStakingAddress);
+         cs.closeDownFeature();
     }
 }
