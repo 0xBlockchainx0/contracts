@@ -96,7 +96,7 @@ contract ContentStaking is Ownable,Featureable {
     function addStakerTip(bytes32 _postId, uint amount) public onlyGateway {
         require(postItems[_postId].initialized == true,"Post ID does not exist");
        // require(postItems[_postId].status == StakingStatus.Open,"Post is not open for tipping");
-        //require(postItems[_postId].tippingBlockStart <= block.number,"Post is not open for tipping"); // REMOVED FOR PRESENTATION PURPOSES, PUT BACK IN AFTER
+        require(postItems[_postId].tippingBlockStart <= block.number,"Post is not open for tipping"); // REMOVED FOR PRESENTATION PURPOSES, PUT BACK IN AFTER
 
         postItems[_postId].tipPool = postItems[_postId].tipPool + amount;
     }
@@ -131,7 +131,7 @@ contract ContentStaking is Ownable,Featureable {
     }
   
     function closeStake(bytes32 _postId, address payable _msgSender) public onlyGatewayOrThis {
-        //require(postItems[_postId].tippingBlockStart > block.number,"Post is still in staking period, wait until tipping period has started."); //removed for demo purposes, put bac in after
+        require(postItems[_postId].tippingBlockStart > block.number,"Post is still in staking period, wait until tipping period has started."); //removed for demo purposes, put bac in after
         require(postItems[_postId].initialized == true,"Post ID does not exist");
         require((postItems[_postId].stakes[_msgSender]).initialized == true ,"You are not staked on this post");
         require(postItems[_postId].stakes[_msgSender].status == StakingStatus.Open,"Stake is already closed");
