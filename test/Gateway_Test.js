@@ -104,7 +104,7 @@ contract('Gateway', function (accounts) {
 
       /**
    * Ensure owner is only person that can set the pointer at contentStaking feature.
-   */
+   *
   it("UpdateFee from Mal Actor", async function () {
     var stakingContract = await ContentStakingContract.deployed();
     var gatewayContract = await GatewayContract.deployed();
@@ -117,7 +117,7 @@ contract('Gateway', function (accounts) {
    
   // console.log('NEW FEE', Web3.utils.hexToNumber(await gatewayContract.fee()))
 
-  });
+  }); */
 
    /**
    * Ensure someone cant steal ownership.

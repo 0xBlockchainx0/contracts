@@ -6,7 +6,7 @@ const truffleAssert = require('truffle-assertions');
 const Web3 = require('web3');
 
 contract('ContentStaking', function (accounts) {
-  
+
 
   /* await web3.eth.getBalance(accounts[0]);
       Scenario 1 (Happy Path): 
@@ -22,7 +22,26 @@ contract('ContentStaking', function (accounts) {
   let errTypes = require("./exceptions.js").errTypes;
 
 
+  it("Test Withdraw From Owner", async function () {
+    var stakingContract = await ContentStakingContract.deployed();
+    await web3.eth.sendTransaction({ from: accounts[1], to: stakingContract.address, value: 400000000 });
+    console.log('balance after transfer', await web3.eth.getBalance(stakingContract.address));
+    await stakingContract.withdraw(400000000,{from:accounts[0]});
 
+  });
+
+  it("Test Withdraw From Mal Actor", async function () {
+    var stakingContract = await ContentStakingContract.deployed();
+    await web3.eth.sendTransaction({ from: accounts[1], to: stakingContract.address, value: 400000000 });
+    console.log('balance after transfer', await web3.eth.getBalance(stakingContract.address));
+
+    await truffleAssert.reverts(
+      stakingContract.withdraw(400000000,{from:accounts[1]}),
+      "Ownable: caller is not the owner"
+    );
+    //then remove what we sent so balance is 0
+    await stakingContract.withdraw(400000000,{from:accounts[0]});
+  });
   // Scenario 1:
   /**
    *  Must also check post object members at the end to verify its correct.
@@ -76,10 +95,12 @@ contract('ContentStaking', function (accounts) {
 
     // ~~~~~~~~~ 2. Stakers Added ~~~~~~~~~
     //1 ether
+    // stake half of the first staker, 2 ether
     await gatewayContract.content_placeStake(postId, {
       from: accounts[1],
       value: staker1Amount
     });
+
 
     let stakeObject_open1 = await stakingContract.getStake(postId, accounts[1])
     //is BigInt, if hex value gets to large it cant be stored in primitive js int.
@@ -102,7 +123,7 @@ contract('ContentStaking', function (accounts) {
     await gatewayContract.content_placeStake(postId, {
       from: accounts[2],
       value: staker2Amount
-    });
+    })
 
     let stakeObject_open2 = await stakingContract.getStake(postId, accounts[2])
     //is BigInt, if hex value gets to large it cant be stored in primitive js int.
@@ -251,6 +272,7 @@ contract('ContentStaking', function (accounts) {
     //console.log('accounts',await accounts)
     let creatorWalletBalanceStart = await web3.eth.getBalance(accounts[0]);
     let staker1WalletBalanceStart = await web3.eth.getBalance(accounts[1]);
+    console.log('ACCOUNT1 BALANCE=', staker1WalletBalanceStart)
     let staker2WalletBalanceStart = await web3.eth.getBalance(accounts[2]);
     let staker1Amount = 1000000000000000000;
     let staker2Amount = 500000000000000000;
@@ -1198,7 +1220,7 @@ contract('ContentStaking', function (accounts) {
 
 
   it("Shutdown Test", async function () {
-    console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ SCENARIO 3 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
+    console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ SHUTDOWN & PAYOUT ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
     // Using big ints for in place of js prim int. 0n ==0
     var stakingContract = await ContentStakingContract.deployed();
     var gatewayContract = await GatewayContract.deployed();
@@ -1231,167 +1253,256 @@ contract('ContentStaking', function (accounts) {
     // Start the gateway Contract, default is paused
     await gatewayContract.startContract()
     //create posts
-      // ~~~~~~~~~ 1. Create POST ~~~~~~~~~
-      await gatewayContract.content_createPost(postId_1, 0);
-      await gatewayContract.content_createPost(postId_2, 0);
-      await gatewayContract.content_createPost(postId_3, 0);
-      await gatewayContract.content_createPost(postId_4, 0);
-      await gatewayContract.content_createPost(postId_5, 0);
-      await gatewayContract.content_createPost(postId_6, 0);
-      await gatewayContract.content_createPost(postId_7, 0);
-      await gatewayContract.content_createPost(postId_8, 0);
+    // ~~~~~~~~~ 1. Create POST ~~~~~~~~~
+    await gatewayContract.content_createPost(postId_1, 0);
+    await gatewayContract.content_createPost(postId_2, 0);
+    await gatewayContract.content_createPost(postId_3, 0);
+    await gatewayContract.content_createPost(postId_4, 0);
+    await gatewayContract.content_createPost(postId_5, 0);
+    await gatewayContract.content_createPost(postId_6, 0);
+    await gatewayContract.content_createPost(postId_7, 0);
+    await gatewayContract.content_createPost(postId_8, 0);
 
     // set some stakers on all
-      // -------- postID_1 ----------
-      // stake half of the first staker, 2 ether
-      await gatewayContract.content_placeStake(postId_1, {
-        from: accounts[1],
-        value: staker1Amount
-      });
-      // stake half of the first staker, 2 ether
-      await gatewayContract.content_placeStake(postId_1, {
-        from: accounts[2],
-        value: staker2Amount
-      });
+    // -------- postID_1 ----------
+    // stake half of the first staker, 2 ether
+    await gatewayContract.content_placeStake(postId_1, {
+      from: accounts[1],
+      value: staker1Amount
+    });
+    // stake half of the first staker, 2 ether
+    await gatewayContract.content_placeStake(postId_1, {
+      from: accounts[2],
+      value: staker2Amount
+    });
 
-      // -------- postID_2 ----------
-      // stake half of the first staker, 2 ether
-      await gatewayContract.content_placeStake(postId_2, {
-        from: accounts[1],
-        value: staker1Amount
-      });
-      // stake half of the first staker, 2 ether
-      await gatewayContract.content_placeStake(postId_2, {
-        from: accounts[2],
-        value: staker2Amount
-      });
+    // -------- postID_2 ----------
+    // stake half of the first staker, 2 ether
+    await gatewayContract.content_placeStake(postId_2, {
+      from: accounts[1],
+      value: staker1Amount
+    });
+    // stake half of the first staker, 2 ether
+    await gatewayContract.content_placeStake(postId_2, {
+      from: accounts[2],
+      value: staker2Amount
+    });
 
-      // -------- postID_3 ----------
-      // stake half of the first staker, 2 ether
-      await gatewayContract.content_placeStake(postId_3, {
-        from: accounts[1],
-        value: staker1Amount
-      });
-      // stake half of the first staker, 2 ether
-      await gatewayContract.content_placeStake(postId_3, {
-        from: accounts[2],
-        value: staker2Amount
-      });
+    // -------- postID_3 ----------
+    // stake half of the first staker, 2 ether
+    await gatewayContract.content_placeStake(postId_3, {
+      from: accounts[1],
+      value: staker1Amount
+    });
+    // stake half of the first staker, 2 ether
+    await gatewayContract.content_placeStake(postId_3, {
+      from: accounts[2],
+      value: staker2Amount
+    });
 
-// -------- postID_4 ----------
-      // stake half of the first staker, 2 ether
-      await gatewayContract.content_placeStake(postId_4, {
-        from: accounts[1],
-        value: staker1Amount
-      });
-      // stake half of the first staker, 2 ether
-      await gatewayContract.content_placeStake(postId_4, {
-        from: accounts[2],
-        value: staker2Amount
-      });
+    // -------- postID_4 ----------
+    // stake half of the first staker, 2 ether
+    await gatewayContract.content_placeStake(postId_4, {
+      from: accounts[1],
+      value: staker1Amount
+    });
+    // stake half of the first staker, 2 ether
+    await gatewayContract.content_placeStake(postId_4, {
+      from: accounts[2],
+      value: staker2Amount
+    });
 
-      // -------- postID_5 ----------
-      // stake half of the first staker, 2 ether
-      await gatewayContract.content_placeStake(postId_5, {
-        from: accounts[1],
-        value: staker1Amount
-      });
-      // stake half of the first staker, 2 ether
-      await gatewayContract.content_placeStake(postId_5, {
-        from: accounts[2],
-        value: staker2Amount
-      });
+    // -------- postID_5 ----------
+    // stake half of the first staker, 2 ether
+    await gatewayContract.content_placeStake(postId_5, {
+      from: accounts[1],
+      value: staker1Amount
+    });
+    // stake half of the first staker, 2 ether
+    await gatewayContract.content_placeStake(postId_5, {
+      from: accounts[2],
+      value: staker2Amount
+    });
 
-      // -------- postID_6 ----------
-      // stake half of the first staker, 2 ether // DONT PUT ANY STAKERS on post6 so that payout logic is a big different, to catch bugs.
-      /*
-      await gatewayContract.content_placeStake(postId_6, {
-        from: accounts[1],
-        value: staker1Amount
-      });
-      // stake half of the first staker, 2 ether
-      await gatewayContract.content_placeStake(postId_6, {
-        from: accounts[2],
-        value: staker2Amount
-      });
-      */
+    // -------- postID_6 ----------
+    // stake half of the first staker, 2 ether // DONT PUT ANY STAKERS on post6 so that payout logic is a big different, to catch bugs.
+    /*
+    await gatewayContract.content_placeStake(postId_6, {
+      from: accounts[1],
+      value: staker1Amount
+    });
+    // stake half of the first staker, 2 ether
+    await gatewayContract.content_placeStake(postId_6, {
+      from: accounts[2],
+      value: staker2Amount
+    });
+    */
 
 
-         // -------- postID_7 ----------
-      // stake half of the first staker, 2 ether
-      await gatewayContract.content_placeStake(postId_7, {
-        from: accounts[1],
-        value: staker1Amount
-      });
-      // stake half of the first staker, 2 ether
-      await gatewayContract.content_placeStake(postId_7, {
-        from: accounts[2],
-        value: staker2Amount
-      });
+    // -------- postID_7 ----------
+    // stake half of the first staker, 2 ether
+    await gatewayContract.content_placeStake(postId_7, {
+      from: accounts[1],
+      value: staker1Amount
+    });
+    // stake half of the first staker, 2 ether
+    await gatewayContract.content_placeStake(postId_7, {
+      from: accounts[2],
+      value: staker2Amount
+    });
 
-         // -------- postID_8 ----------
-      // stake half of the first staker, 2 ether
-      await gatewayContract.content_placeStake(postId_8, {
-        from: accounts[1],
-        value: staker1Amount
-      });
-      // stake half of the first staker, 2 ether
-      await gatewayContract.content_placeStake(postId_8, {
-        from: accounts[2],
-        value: staker2Amount
-      });
+    // -------- postID_8 ----------
+    // stake half of the first staker, 2 ether
+    await gatewayContract.content_placeStake(postId_8, {
+      from: accounts[1],
+      value: staker1Amount
+    });
+    // stake half of the first staker, 2 ether
+    await gatewayContract.content_placeStake(postId_8, {
+      from: accounts[2],
+      value: staker2Amount
+    });
 
-        /// TIPS
-        await gatewayContract.content_tip(postId_1, {
-          from: accounts[4],
-          value: tipper1Amount
-        });
-        await gatewayContract.content_tip(postId_2, {
-          from: accounts[4],
-          value: tipper1Amount
-        });
-        await gatewayContract.content_tip(postId_3, {
-          from: accounts[4],
-          value: tipper1Amount
-        });
-        await gatewayContract.content_tip(postId_4, {
-          from: accounts[4],
-          value: tipper1Amount
-        });
-        await gatewayContract.content_tip(postId_5, {
-          from: accounts[4],
-          value: tipper1Amount
-        });
-        await gatewayContract.content_tip(postId_6, {
-          from: accounts[4],
-          value: tipper1Amount
-        });
-        /* dont give any tips on 7 so values are diffferent than others.
-        await gatewayContract.content_tip(postId_7, {
-          from: accounts[4],
-          value: tipper1Amount
-        }); 
-        */
-        // on post 8 give tipper2amount +tipper1amount/2 so values are diff from other posts
-        await gatewayContract.content_tip(postId_8, {
-          from: accounts[4],
-          value: tipper1Amount
-        });
-        await gatewayContract.content_tip(postId_8, {
-          from: accounts[4],
-          value: tipper1Amount/2
-        });
-       
-        //CLOSE DOWN
+    /// TIPS
+    await gatewayContract.content_tip(postId_1, {
+      from: accounts[4],
+      value: tipper1Amount
+    });
+    await gatewayContract.content_tip(postId_2, {
+      from: accounts[4],
+      value: tipper1Amount
+    });
+    await gatewayContract.content_tip(postId_3, {
+      from: accounts[4],
+      value: tipper1Amount
+    });
+    await gatewayContract.content_tip(postId_4, {
+      from: accounts[4],
+      value: tipper1Amount
+    });
+    await gatewayContract.content_tip(postId_5, {
+      from: accounts[4],
+      value: tipper1Amount
+    });
+    await gatewayContract.content_tip(postId_6, {
+      from: accounts[4],
+      value: tipper1Amount
+    });
+    /* dont give any tips on 7 so values are diffferent than others.
+    await gatewayContract.content_tip(postId_7, {
+      from: accounts[4],
+      value: tipper1Amount
+    }); 
+    */
+    // on post 8 give tipper2amount +tipper1amount/2 so values are diff from other posts
+    await gatewayContract.content_tip(postId_8, {
+      from: accounts[4],
+      value: tipper1Amount
+    });
+    await gatewayContract.content_tip(postId_8, {
+      from: accounts[4],
+      value: tipper1Amount / 2
+    });
+    let totalTipped = (7 * tipper1Amount) + (tipper1Amount / 2);
+    let totalStaked = (7 * staker1Amount) + (7 * staker2Amount);
+    let totalValueSent = totalStaked + totalTipped;
 
-       // await gatewayContract.contentStaking_closeDownFeature();
-        // CHECK EACH POST for values and make sure everyone is paid out.
+    console.log('\n\n')
+    console.log('Total value in contract', await web3.eth.getBalance(stakingContract.address));
+    console.log('\n\n')
+    console.log('Total sent value', totalValueSent);
+    console.log('\n\n')
+    //CLOSE DOWN
+    //check total value sent to contract first before close out
+    assert.equal(totalValueSent, await web3.eth.getBalance(stakingContract.address), 'total value sent'); // INIT
+
+
+
+
+    //shutdown
+    await gatewayContract.contentStaking_closeDownFeature({
+      from: accounts[0]
+    });
+
+    let postItemsArray = await stakingContract.getPostItemIds();
+    console.log('ARRAY OF ITEMS', postItemsArray);
+    let testPostItem = await stakingContract.postItems(postId_1);
+    console.log('TESTPOSTITEM=', testPostItem)
+
+
+    for (x = 0; x < postItemsArray.length; x++) {
+      // scan through each post
+      let currPost = await stakingContract.postItems(postItemsArray[x]);
+      // let postObject_open = await stakingContract.postItems(postId);
+      // parse postObject to decimals for readability
+      currPost = {
+        initialized: currPost.initialized,
+        creator: currPost.creator,
+        tipPool: new BigNumber(currPost.tipPool).toFixed(),
+        stakeFeePool: new BigNumber(currPost.stakeFeePool).toFixed(),
+        creatorEarningsAmount: new BigNumber(currPost.creatorEarningsAmount).toFixed(),
+        totalStakedAmount: new BigNumber(currPost.totalStakedAmount).toFixed(),
+        createdAtBlock: new BigNumber(currPost.createdAtBlock).toFixed(),
+        tippingBlockStart: new BigNumber(currPost.tippingBlockStart).toFixed(),
+        stakersCount: new BigNumber(currPost.stakersCount).toFixed(),
+        stakesOpenCount: new BigNumber(currPost.stakesOpenCount).toFixed(),
+      };
+      console.log('\n\n')
+      console.log('> Current Post ID -> ', postItemsArray[x]);
+      console.log('> Current Post Being Checked -> ', currPost);
+      console.log('\n\n')
+
+      //currenlty just check the simple stuff
+      assert.equal(currPost.tipPool, 0, 'Verify no tips')
+      assert.equal(currPost.stakeFeePool, 0, 'Verify no stakingFees')
+      assert.equal(currPost.totalStakedAmount, 0, 'Verify no staked amount')
+      assert.equal((currPost.tippingBlockStart != 0), true, 'Verify tipping Blockstart is not == 0')
+      assert.equal((currPost.createdAtBlock != 0), true, 'Verify tipping Blockstart is not == 0')
+      //assert.equal(currPost.stakersCount, 0 , 'Verify no stakers being counted as active')
+      assert.equal(currPost.stakesOpenCount, 0, 'Verify no stakers being counted as active')
+
+      // SCAN all stakes in post
+      let stakesArray = await stakingContract.getStakers(postItemsArray[x]);
+      console.log('> List of Stakers on this post ->', stakesArray)
+      // verify stakercount is equal to amount of stakes
+      assert.equal(stakesArray.length, currPost.stakersCount, 'Verify there is an amount staked ')
+
+
+
+      for (let y = 0; y < stakesArray.length; y++) {
+        let currStake = await stakingContract.getStake(postItemsArray[x], stakesArray[y])
+        currStake = {
+          initialized: currStake[0],
+          status: new BigNumber(currStake[1]).toFixed(),
+          amountStaked: new BigNumber(currStake[2]).toFixed(),
+          amountAccrued: new BigNumber(currStake[3]).toFixed(),
+          blockOpened: new BigNumber(currStake[4]).toFixed(),
+          blockClosed: new BigNumber(currStake[5]).toFixed(),
+        };
+        console.log('\n\n');
+        console.log('> Current Post ID -> ', postItemsArray[x]);
+        console.log('> Current Stake Being Checked -> ', currStake);
+        console.log('\n\n');
+
+        // assertions on stakes
+        assert.equal((currStake.amountStaked != 0), true, 'Verify there is an amount staked ')
+        assert.equal((currStake.blockOpened != 0), true, 'Verify it has been tracked by block')
+        assert.equal((currStake.status), 2, 'Verify no stakingFees')
+        assert.equal((currStake.blockClosed != 0), true, 'Verify closed block tracked')
+      }
+    }
+
+    // VERIFY CONTRACT HAS NO FUNDS IN IT
+    console.log('\n\n')
+    console.log('Total Ending Contract balance', await web3.eth.getBalance(stakingContract.address));
+    console.log('\n\n')
+
+    //CLOSE DOWN
+    //check total value sent to contract first before close out
+    assert.equal(await web3.eth.getBalance(stakingContract.address), 0, 'total value in contract'); // INIT
+
+
   });
 
-  //todo
-  /* 
-  1.test user can only stake once
-  2. user cannot sell someone elses stake
-  3. only creator can close post
-  */
+
 });

@@ -21,3 +21,5 @@ Truffle will deploy the contracts if they are not found in the **build** folder 
 1. `npm install`
 
 2. `source .env && truffle deploy --network matic_testnet`
+
+truffle-flatener

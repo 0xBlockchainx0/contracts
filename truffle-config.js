@@ -20,7 +20,14 @@ module.exports = {
         confirmations: 0,
         timeoutBlocks: 200,
         skipDryRun: true
-      }
+      },
+      matic_mainnet:{
+        provider: () => new HDWalletProvider(PRIVATE_KEY,'https://rpc-mainnet.matic.network'),
+        network_id: 137,
+        confirmations: 2,
+        timeoutBlocks: 200,
+        skipDryRun: true
+      },
     },
     compilers: {
       solc: {

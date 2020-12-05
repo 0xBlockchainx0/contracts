@@ -12,9 +12,6 @@ contract Gateway is BasicMetaTransaction,Ownable, Pausable {
 // ********* FEATURE CONTRACT ADDRESSES *********
     address payable public contentStakingAddress;
 
-// ********* GLOBAL VAR FEES *********  
-    uint256 public fee = 10;
-
 // ********* EVENTS *********
     event ContentPost(
         address indexed _actor,
@@ -29,24 +26,11 @@ contract Gateway is BasicMetaTransaction,Ownable, Pausable {
         address indexed _contractAddress
     );
 
-    constructor() public {
-
-    }
-
-
-
-
-
-
 
 
 
 
      // ************************    OWNER ONLY CALLABLE FUNCTIONS     *******************************
-
-    function updateFee(uint256 _newFee) public onlyOwner {
-        fee = _newFee;
-    }
 
     /// ****** Content Staking Features *******
 
@@ -133,7 +117,7 @@ contract Gateway is BasicMetaTransaction,Ownable, Pausable {
 
         emit ContentPost(msgSender(), "Stake", _postId, msg.value);
     }
-
+    /*
     function content_getStakes(bytes32 _postId) public view returns (address payable[] memory)
     {
         ContentStaking cs = ContentStaking(contentStakingAddress);
@@ -141,9 +125,12 @@ contract Gateway is BasicMetaTransaction,Ownable, Pausable {
 
         return stakes;
     }
+    */
     //TODO make this accept a generic address and do a call to that address shutdownFeature
     function contentStaking_closeDownFeature() public onlyOwner {
          ContentStaking cs = ContentStaking(contentStakingAddress);
          cs.closeDownFeature();
+         emit Feature(msgSender(), "Feature - Content Staking","Shutdown", contentStakingAddress);
+
     }
 }

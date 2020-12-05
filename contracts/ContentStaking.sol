@@ -7,9 +7,12 @@ import "./lib/BasicMetaTransaction.sol";
 
 contract ContentStaking is Ownable,Featureable {
     
-    enum StakingStatus { Nonexistant, Open, ClosedByStaker, ClosedByHuddln }
+    enum StakingStatus { Nonexistant, Open, Closed }
     enum PostLength { Short, Medium, Long }
-
+    event Received(
+        address indexed _actor,
+        uint256  _value
+    );
 
     struct Stake {
         bool initialized;
@@ -96,15 +99,15 @@ contract ContentStaking is Ownable,Featureable {
     function addStakerTip(bytes32 _postId, uint amount) public onlyGateway {
         require(postItems[_postId].initialized == true,"Post ID does not exist");
        // require(postItems[_postId].status == StakingStatus.Open,"Post is not open for tipping");
-        require(postItems[_postId].tippingBlockStart <= block.number,"Post is not open for tipping"); // REMOVED FOR PRESENTATION PURPOSES, PUT BACK IN AFTER
+      //  require(postItems[_postId].tippingBlockStart <= block.number,"Post is not open for tipping"); // REMOVED FOR PRESENTATION PURPOSES, PUT BACK IN AFTER
 
         postItems[_postId].tipPool = postItems[_postId].tipPool + amount;
     }
     function placeStake(bytes32 _postId, uint amount, address payable _sender) public onlyGateway{
        // require(postItems[_postId].status == StakingStatus.Open,"Post is not open for staking");
        // do not let someone add stake thats already staked.
-        require(postItems[_postId].initialized == true,"Post ID does not exist");
-        require(postItems[_postId].tippingBlockStart > block.number,"Post is not open for staking");
+     require(postItems[_postId].initialized == true,"Post ID does not exist");
+      //  require(postItems[_postId].tippingBlockStart > block.number,"Post is not open for staking");
         require((postItems[_postId].stakes[_sender]).initialized == false ,"You are already staked");
         require(_sender != (postItems[_postId].creator),"You cannot stake on your own post");
 
@@ -128,6 +131,7 @@ contract ContentStaking is Ownable,Featureable {
             blockClosed: 0x0
         });
         
+        
     }
   
     function closeStake(bytes32 _postId, address payable _msgSender) public onlyGatewayOrThis {
@@ -141,7 +145,7 @@ contract ContentStaking is Ownable,Featureable {
         uint256 amountAccrued = postItems[_postId].tipPool * originalStake / postItems[_postId].totalStakedAmount;
             //pay fee
         uint fee = amountAccrued * 10/100;
-        postItems[_postId].stakes[_msgSender].status = StakingStatus.ClosedByStaker;
+        postItems[_postId].stakes[_msgSender].status = StakingStatus.Closed;
         postItems[_postId].stakesOpenCount =  postItems[_postId].stakesOpenCount-1;// new count for watching amount of stakes open
         postItems[_postId].stakes[_msgSender].blockClosed = block.number;
         postItems[_postId].stakes[_msgSender].amountAccrued = amountAccrued - fee;
@@ -153,9 +157,11 @@ contract ContentStaking is Ownable,Featureable {
         _msgSender.transfer(originalStake + (amountAccrued - fee));
   
     }
+    
     function getStakers(bytes32 _postId) public view returns (address payable[] memory) {
         return postItems[_postId].stakers;
     }
+    
     /**
          Callable by gateway only, used to pay out the owner with the stakeFeePool money, can only be called after staking round is done.
          Owner can call this as many times as they want, if they call this & all stakers have closed their stakes their is a possibility that the tipPool may have some money accrued in it,
@@ -240,10 +246,19 @@ contract ContentStaking is Ownable,Featureable {
         // TODO: Call the call function in the main contract
         // and forward all funds (msg.value) sent to this contract
         // and passing in the following data: msg.sender
-      }
-  
+    
+    }
     receive() external payable {
-         _owner.transfer(msg.value); //send to owner of contract
-        }
+        emit Received(msgSender(),msg.value);
+    }
+    /**
+    Only used by owner in case owner needs to remove funds from contract.
+    
+     */
+    function withdraw(uint amount) public onlyOwner returns(bool) {
+        require(amount <= address(this).balance);
+        _owner.transfer(amount);
+        return true;
 
+    }
 }
