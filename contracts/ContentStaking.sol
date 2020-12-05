@@ -4,8 +4,9 @@ import './abstractions/Pausable.sol';
 import './abstractions/Ownable.sol';
 import './abstractions/Featureable.sol';
 import "./lib/BasicMetaTransaction.sol";
-
+import "./lib/SafeMath.sol";
 contract ContentStaking is Ownable,Featureable {
+    using SafeMath for uint256; //must use the uint256 of safemath instead of regular sol.
     
     enum StakingStatus { Nonexistant, Open, Closed }
     enum PostLength { Short, Medium, Long }
@@ -24,8 +25,8 @@ contract ContentStaking is Ownable,Featureable {
         StakingStatus status;
         uint256 amountStaked;
         uint256 amountAccrued;
-        uint blockOpened;
-        uint blockClosed;
+        uint256 blockOpened;
+        uint256 blockClosed;
     }
 
     struct PostItem {
@@ -43,11 +44,11 @@ contract ContentStaking is Ownable,Featureable {
         address payable[] stakers;
         mapping (address => Stake) stakes;
         uint256 totalStakedAmount;
-        uint createdAtBlock;
-        uint tippingBlockStart;
+        uint256 createdAtBlock;
+        uint256 tippingBlockStart;
         //track amount of stakers without having to pull down array
-        uint stakersCount;
-        uint stakesOpenCount; // track all open amount so we don't need to search through mapping (expensive)
+        uint256 stakersCount;
+        uint256 stakesOpenCount; // track all open amount so we don't need to search through mapping (expensive)
     }
 
     mapping(bytes32 => PostItem) public postItems;
@@ -69,7 +70,7 @@ contract ContentStaking is Ownable,Featureable {
         require(postItems[_postId].initialized == false,"Post ID already exists");
        
        // address payable[] memory tempAddressArray = new address payable[](0);
-        uint intPostLength;
+        uint256 intPostLength;
         if (_postLength == uint(PostLength.Short)) {
             intPostLength = 0x708;
         } else if (_postLength == uint(PostLength.Medium)) {
@@ -103,14 +104,14 @@ contract ContentStaking is Ownable,Featureable {
     }
   
 
-    function addStakerTip(bytes32 _postId, uint amount) public onlyGateway {
+    function addStakerTip(bytes32 _postId, uint256 amount) public onlyGateway {
         require(postItems[_postId].initialized == true,"Post ID does not exist");
        // require(postItems[_postId].status == StakingStatus.Open,"Post is not open for tipping");
       //  require(postItems[_postId].tippingBlockStart <= block.number,"Post is not open for tipping"); // REMOVED FOR PRESENTATION PURPOSES, PUT BACK IN AFTER
 
-        postItems[_postId].tipPool = postItems[_postId].tipPool + amount;
+        postItems[_postId].tipPool = postItems[_postId].tipPool.add(amount);
     }
-    function placeStake(bytes32 _postId, uint amount, address payable _sender) public onlyGateway{
+    function placeStake(bytes32 _postId, uint256 amount, address payable _sender) public onlyGateway{
        // require(postItems[_postId].status == StakingStatus.Open,"Post is not open for staking");
        // do not let someone add stake thats already staked.
      require(postItems[_postId].initialized == true,"Post ID does not exist");
@@ -119,12 +120,12 @@ contract ContentStaking is Ownable,Featureable {
         require(_sender != (postItems[_postId].creator),"You cannot stake on your own post");
 
         //require(postItems[_postId].stakersCount <= 500,"Max stakers reached (500)");amountAccrued * 10/100;
-        uint fee = amount * 10/100; // find fee
+        uint256 fee = amount * 10/100; // find fee
         amount = amount - fee; // remove fee from the amount staked.
 
-        postItems[_postId].stakeFeePool = postItems[_postId].stakeFeePool + fee; //add fee for owners earnings 
-        postItems[_postId].stakesOpenCount =  postItems[_postId].stakesOpenCount+1;// new count for watching amount of stakes open
-        postItems[_postId].totalStakedAmount = postItems[_postId].totalStakedAmount + amount;
+        postItems[_postId].stakeFeePool = postItems[_postId].stakeFeePool.add(fee); //add fee for owners earnings 
+        postItems[_postId].stakesOpenCount =  postItems[_postId].stakesOpenCount.add(1);// new count for watching amount of stakes open
+        postItems[_postId].totalStakedAmount = postItems[_postId].totalStakedAmount.add(amount);
         postItems[_postId].stakersCount = postItems[_postId].stakersCount+1;
         
         postItems[_postId].stakers.push(_sender);
@@ -140,7 +141,7 @@ contract ContentStaking is Ownable,Featureable {
         
         
     }
-  
+    //safemath converted 
     function closeStake(bytes32 _postId, address payable _msgSender) public onlyGatewayOrThis {
         require(postItems[_postId].tippingBlockStart > block.number,"Post is still in staking period, wait until tipping period has started."); //removed for demo purposes, put bac in after
         require(postItems[_postId].initialized == true,"Post ID does not exist");
@@ -151,17 +152,17 @@ contract ContentStaking is Ownable,Featureable {
         uint256 originalStake = postItems[_postId].stakes[_msgSender].amountStaked;
         uint256 amountAccrued = postItems[_postId].tipPool * originalStake / postItems[_postId].totalStakedAmount;
             //pay fee
-        uint fee = amountAccrued * 10/100;
+        uint256 fee = amountAccrued * 10/100;
         postItems[_postId].stakes[_msgSender].status = StakingStatus.Closed;
-        postItems[_postId].stakesOpenCount =  postItems[_postId].stakesOpenCount-1;// new count for watching amount of stakes open
+        postItems[_postId].stakesOpenCount =  postItems[_postId].stakesOpenCount.sub(1);// new count for watching amount of stakes open
         postItems[_postId].stakes[_msgSender].blockClosed = block.number;
-        postItems[_postId].stakes[_msgSender].amountAccrued = amountAccrued - fee;
-        postItems[_postId].totalStakedAmount = postItems[_postId].totalStakedAmount - originalStake;
-        postItems[_postId].tipPool = postItems[_postId].tipPool - amountAccrued;
+        postItems[_postId].stakes[_msgSender].amountAccrued = amountAccrued.sub(fee);
+        postItems[_postId].totalStakedAmount = postItems[_postId].totalStakedAmount.sub(originalStake);
+        postItems[_postId].tipPool = postItems[_postId].tipPool.sub(amountAccrued);
         // pay out fee to owner contract
         _owner.transfer(fee);
         // when sending back to sender, remove the fee we just sent to the owner
-        _msgSender.transfer(add(originalStake, 5) (amountAccrued - fee));
+        _msgSender.transfer(originalStake.add(amountAccrued.sub(fee)));
   
     }
     
@@ -188,32 +189,32 @@ contract ContentStaking is Ownable,Featureable {
         // require it to be POST owner of the _postId or Huddln
         //check if there are any stakes open, it will be 0 if there are no stakers or if all the stakers have closed their stakes
         if ( postItems[_postId].stakesOpenCount == 0 ){
-             uint tipsFee = postItems[_postId].tipPool * 10/100; //Fee to subtract goes to owner
-             uint stakePoolFeesFee =  postItems[_postId].stakeFeePool * 10/100; //fee to subtract goes to owner, should rename this .. terrible name
+             uint256 tipsFee = postItems[_postId].tipPool * 10/100; //Fee to subtract goes to owner
+             uint256 stakePoolFeesFee =  postItems[_postId].stakeFeePool * 10/100; //fee to subtract goes to owner, should rename this .. terrible name
 
-             uint earningsAmountTips = postItems[_postId].tipPool - tipsFee; //just earnings for this round
-             uint earningsAmountStakeFees = postItems[_postId].stakeFeePool - stakePoolFeesFee;
+             uint256 earningsAmountTips = postItems[_postId].tipPool.sub(tipsFee); //just earnings for this round
+             uint256 earningsAmountStakeFees = postItems[_postId].stakeFeePool.sub(stakePoolFeesFee);
              // set the amount earned, for historical purposes, both pools minus the fee.
-              postItems[_postId].creatorEarningsAmount = postItems[_postId].creatorEarningsAmount + (earningsAmountTips + earningsAmountStakeFees);
+              postItems[_postId].creatorEarningsAmount = postItems[_postId].creatorEarningsAmount.add(earningsAmountTips.add(earningsAmountStakeFees));
              // fees first , from combination of both pools
-             _owner.transfer(tipsFee + stakePoolFeesFee);
+             _owner.transfer(tipsFee.add(stakePoolFeesFee));
 
              // transfer to the owner of post
-             postItems[_postId].creator.transfer(earningsAmountTips + earningsAmountStakeFees);
+             postItems[_postId].creator.transfer(earningsAmountTips.add(earningsAmountStakeFees));
                 // clear out stakefeepool, by subtracting everything we just paid out, should equate to 0
-             postItems[_postId].stakeFeePool = postItems[_postId].stakeFeePool - (earningsAmountStakeFees + stakePoolFeesFee  ); //update values should equate to 0
-             postItems[_postId].tipPool = postItems[_postId].tipPool - (earningsAmountTips + tipsFee); // ==0
+             postItems[_postId].stakeFeePool = postItems[_postId].stakeFeePool.sub(earningsAmountStakeFees.add(stakePoolFeesFee)); //update values should equate to 0
+             postItems[_postId].tipPool = postItems[_postId].tipPool.sub(earningsAmountTips.add(tipsFee)); // ==0
 
         } else {
             // this case, handles if there are 1 or more stakers, then the creator only takes from the stakefeepool.
-             uint fee = (postItems[_postId].stakeFeePool) * 10/100;
-             uint earningsAmount = postItems[_postId].stakeFeePool-fee; //just earnings for this round
+             uint256 fee = (postItems[_postId].stakeFeePool) * 10/100;
+             uint256 earningsAmount = postItems[_postId].stakeFeePool.sub(fee); //just earnings for this round
 
-             postItems[_postId].creatorEarningsAmount = postItems[_postId].creatorEarningsAmount + earningsAmount;//must sum up earnings from prev round
+             postItems[_postId].creatorEarningsAmount = postItems[_postId].creatorEarningsAmount.add(earningsAmount);//must sum up earnings from prev round
              _owner.transfer(fee);
              postItems[_postId].creator.transfer(earningsAmount);// transfer this calls earningsamount only.
              // clear out stakefeepool, by subtracting everything we just paid out, should equate to 0
-             postItems[_postId].stakeFeePool = postItems[_postId].stakeFeePool - (fee + earningsAmount) ;
+             postItems[_postId].stakeFeePool = postItems[_postId].stakeFeePool.sub(fee.add(earningsAmount));
         }     
 
     }
@@ -225,7 +226,7 @@ contract ContentStaking is Ownable,Featureable {
     */
     /*
         returns the stake object vlaues in a tuple, from a specific post and specific person
-        cannot return a enum so must convert to plain uint before returning
+        cannot return a enum so must convert to plain uint256 before returning
     */
       function getStake(bytes32 _postId, address _address) public view returns(bool,uint, uint256, uint256, uint, uint) {
        return (postItems[_postId].stakes[_address].initialized,uint(postItems[_postId].stakes[_address].status),postItems[_postId].stakes[_address].amountStaked,
@@ -239,11 +240,11 @@ contract ContentStaking is Ownable,Featureable {
     only callable by gateway , only called before a big upgrade to shutdown
     */
     function closeDownFeature() public onlyGateway payable {
-        uint mapLength = postItemIds.length; //get all posts that have been made, get the length
+        uint256 mapLength = postItemIds.length; //get all posts that have been made, get the length
 
-        for (uint i=0; i<mapLength; i++) { //LOOP THROUGH EACH POST
+        for (uint256 i=0; i<mapLength; i++) { //LOOP THROUGH EACH POST
             PostItem storage currItem = postItems[postItemIds[i]]; //gets current post item object
-            for (uint j=0; j < currItem.stakersCount; j++){ //LOOP THROUGH STAKERS and find open stakes and close them out
+            for (uint256 j=0; j < currItem.stakersCount; j++){ //LOOP THROUGH STAKERS and find open stakes and close them out
                 address payable currStakerAddress = currItem.stakers[j];
                 if(currItem.stakes[currStakerAddress].status == StakingStatus.Open){ // pull up the stake of the current staker and check to see if its open. if so close it down
                     closeStake(postItemIds[i], currStakerAddress ); //closestake of staker at the current postItem
@@ -268,7 +269,7 @@ contract ContentStaking is Ownable,Featureable {
     Only used by owner in case owner needs to remove funds from contract.
     
      */
-    function withdraw(uint amount) public onlyOwner returns(bool) {
+    function withdraw(uint256 amount) public onlyOwner returns(bool) {
         require(amount <= address(this).balance);
         _owner.transfer(amount);
         return true;
