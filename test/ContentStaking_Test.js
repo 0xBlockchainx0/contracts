@@ -26,7 +26,7 @@ contract('ContentStaking', function (accounts) {
     var stakingContract = await ContentStakingContract.deployed();
     await web3.eth.sendTransaction({ from: accounts[1], to: stakingContract.address, value: 400000000 });
     console.log('balance after transfer', await web3.eth.getBalance(stakingContract.address));
-    await stakingContract.withdraw(400000000,{from:accounts[0]});
+    await stakingContract.withdraw(400000000, { from: accounts[0] });
 
   });
 
@@ -36,11 +36,11 @@ contract('ContentStaking', function (accounts) {
     console.log('balance after transfer', await web3.eth.getBalance(stakingContract.address));
 
     await truffleAssert.reverts(
-      stakingContract.withdraw(400000000,{from:accounts[1]}),
+      stakingContract.withdraw(400000000, { from: accounts[1] }),
       "Ownable: caller is not the owner"
     );
     //then remove what we sent so balance is 0
-    await stakingContract.withdraw(400000000,{from:accounts[0]});
+    await stakingContract.withdraw(400000000, { from: accounts[0] });
   });
   // Scenario 1:
   /**
@@ -1425,9 +1425,9 @@ contract('ContentStaking', function (accounts) {
     });
 
     let postItemsArray = await stakingContract.getPostItemIds();
-    console.log('ARRAY OF ITEMS', postItemsArray);
+  
     let testPostItem = await stakingContract.postItems(postId_1);
-    console.log('TESTPOSTITEM=', testPostItem)
+ 
 
 
     for (x = 0; x < postItemsArray.length; x++) {
@@ -1487,7 +1487,7 @@ contract('ContentStaking', function (accounts) {
         // assertions on stakes
         assert.equal((currStake.amountStaked != 0), true, 'Verify there is an amount staked ')
         assert.equal((currStake.blockOpened != 0), true, 'Verify it has been tracked by block')
-        assert.equal((currStake.status), 2, 'Verify no stakingFees')
+        assert.equal((currStake.status), 2, 'Verify no stakingFees left')
         assert.equal((currStake.blockClosed != 0), true, 'Verify closed block tracked')
       }
     }
@@ -1500,6 +1500,23 @@ contract('ContentStaking', function (accounts) {
     //CLOSE DOWN
     //check total value sent to contract first before close out
     assert.equal(await web3.eth.getBalance(stakingContract.address), 0, 'total value in contract'); // INIT
+    // NOW PUT CONTRACT INTO PAUSED MODE
+    await gatewayContract.stopContract();
+    //check to make sure its not running
+    assert.equal(await gatewayContract.isRunning(), false, 'total value in contract'); // INIT
+    // PRINT OUT FINAL GLOBAL VARIABLES THAT AREE IMPORTNAT IN CONTRACTS
+
+    let endStateStakingContract = {
+      PostItemIds: await stakingContract.getPostItemIds(),
+      GatewayContractAddress: await stakingContract.getGatewayContract(),
+      ContractBalance: await web3.eth.getBalance(stakingContract.address),
+      isRunning: await gatewayContract.isRunning()
+
+    };
+    console.log('\n\n')
+    console.log('Ending State of Content Staking Contract', endStateStakingContract);
+    console.log('\n\n')
+
 
 
   });

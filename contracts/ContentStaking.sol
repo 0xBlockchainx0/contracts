@@ -13,6 +13,11 @@ contract ContentStaking is Ownable,Featureable {
         address indexed _actor,
         uint256  _value
     );
+    event Gateway(
+        address indexed _actor,
+        string  _action,
+        address indexed _contractAddress
+    );
 
     struct Stake {
         bool initialized;
@@ -54,6 +59,8 @@ contract ContentStaking is Ownable,Featureable {
    // }
     function setGatewayContract (address payable _newGatewayContract) public onlyOwner{
         gatewayContract = _newGatewayContract;
+        emit Gateway(msgSender(),"Updated", gatewayContract);
+
     }
      // ~ 1 hour is 1800 blocks -> 0x708
      // ~ 6 hours 10800 -> 0x2a30
@@ -61,7 +68,7 @@ contract ContentStaking is Ownable,Featureable {
     function createPost(bytes32 _postId, address payable _creator, uint256 _postLength) public onlyGateway {
         require(postItems[_postId].initialized == false,"Post ID already exists");
        
-        address payable[] memory tempAddressArray = new address payable[](0);
+       // address payable[] memory tempAddressArray = new address payable[](0);
         uint intPostLength;
         if (_postLength == uint(PostLength.Short)) {
             intPostLength = 0x708;
@@ -77,7 +84,7 @@ contract ContentStaking is Ownable,Featureable {
             tipPool:0,
             stakeFeePool:0,
             creatorEarningsAmount:0,
-            stakers: tempAddressArray,
+            stakers: new address payable[](0),
           
             totalStakedAmount: 0,
             
@@ -154,12 +161,18 @@ contract ContentStaking is Ownable,Featureable {
         // pay out fee to owner contract
         _owner.transfer(fee);
         // when sending back to sender, remove the fee we just sent to the owner
-        _msgSender.transfer(originalStake + (amountAccrued - fee));
+        _msgSender.transfer(add(originalStake, 5) (amountAccrued - fee));
   
     }
     
     function getStakers(bytes32 _postId) public view returns (address payable[] memory) {
         return postItems[_postId].stakers;
+    }
+/**
+    check who the gatewaycontract is, can't read directly from a get()
+ */
+    function getGatewayContract() public view returns (address payable ) {
+        return gatewayContract;
     }
     
     /**
