@@ -8,6 +8,7 @@ import "./lib/SafeMath.sol";
 contract ContentStaking is Ownable,Featureable {
     using SafeMath for uint256; //must use the uint256 of safemath instead of regular sol.
     
+    uint256 globalFee = 1000;//1000 bps basis points = 10% //used as service fee and for creator fee when somsone stakes, they must pay a staking fee to creator, then when selling stake they must pay a earnings fee to service.
     enum StakingStatus { Nonexistant, Open, Closed }
     enum PostLength { Short, Medium, Long }
     event Received(
@@ -105,28 +106,28 @@ contract ContentStaking is Ownable,Featureable {
   
 
     function addStakerTip(bytes32 _postId, uint256 amount) public onlyGateway {
+        require((amount/10000) * 10000 == amount, "Must send at least 10,000 base currency units");
         require(postItems[_postId].initialized == true,"Post ID does not exist");
-       // require(postItems[_postId].status == StakingStatus.Open,"Post is not open for tipping");
-      //  require(postItems[_postId].tippingBlockStart <= block.number,"Post is not open for tipping"); // REMOVED FOR PRESENTATION PURPOSES, PUT BACK IN AFTER
+        require(postItems[_postId].tippingBlockStart <= block.number,"Post is not open for tipping"); // REMOVED FOR testing purposes
 
         postItems[_postId].tipPool = postItems[_postId].tipPool.add(amount);
     }
     function placeStake(bytes32 _postId, uint256 amount, address payable _sender) public onlyGateway{
-       // require(postItems[_postId].status == StakingStatus.Open,"Post is not open for staking");
+        require((amount/10000) * 10000 == amount, "Must send at least 10,000 base currency units");
        // do not let someone add stake thats already staked.
-     require(postItems[_postId].initialized == true,"Post ID does not exist");
-      //  require(postItems[_postId].tippingBlockStart > block.number,"Post is not open for staking");
+        require(postItems[_postId].initialized == true,"Post ID does not exist");
+        require(postItems[_postId].tippingBlockStart > block.number,"Post is not open for staking"); // REMOVED FOR testing purposes
         require((postItems[_postId].stakes[_sender]).initialized == false ,"You are already staked");
         require(_sender != (postItems[_postId].creator),"You cannot stake on your own post");
 
-        //require(postItems[_postId].stakersCount <= 500,"Max stakers reached (500)");amountAccrued * 10/100;
-        uint256 fee = amount * 10/100; // find fee
-        amount = amount - fee; // remove fee from the amount staked.
+        //require(postItems[_postId].stakersCount <= 500,"Max stakers reached (500)");amountAccrued * globalFee/100;
+        uint256 fee = amount.mul(globalFee).div(10000); // find fee
+        amount = amount.sub(fee); // remove fee from the amount staked.
 
         postItems[_postId].stakeFeePool = postItems[_postId].stakeFeePool.add(fee); //add fee for owners earnings 
         postItems[_postId].stakesOpenCount =  postItems[_postId].stakesOpenCount.add(1);// new count for watching amount of stakes open
         postItems[_postId].totalStakedAmount = postItems[_postId].totalStakedAmount.add(amount);
-        postItems[_postId].stakersCount = postItems[_postId].stakersCount+1;
+        postItems[_postId].stakersCount = postItems[_postId].stakersCount.add(1);
         
         postItems[_postId].stakers.push(_sender);
 
@@ -143,16 +144,16 @@ contract ContentStaking is Ownable,Featureable {
     }
     //safemath converted 
     function closeStake(bytes32 _postId, address payable _msgSender) public onlyGatewayOrThis {
-        require(postItems[_postId].tippingBlockStart > block.number,"Post is still in staking period, wait until tipping period has started."); //removed for demo purposes, put bac in after
+        require(postItems[_postId].tippingBlockStart < block.number,"Post is still in staking period, wait until tipping period has started."); //remove for testing 
         require(postItems[_postId].initialized == true,"Post ID does not exist");
         require((postItems[_postId].stakes[_msgSender]).initialized == true ,"You are not staked on this post");
         require(postItems[_postId].stakes[_msgSender].status == StakingStatus.Open,"Stake is already closed");
         
     
         uint256 originalStake = postItems[_postId].stakes[_msgSender].amountStaked;
-        uint256 amountAccrued = postItems[_postId].tipPool * originalStake / postItems[_postId].totalStakedAmount;
+        uint256 amountAccrued = postItems[_postId].tipPool.mul(originalStake).div(postItems[_postId].totalStakedAmount);
             //pay fee
-        uint256 fee = amountAccrued * 10/100;
+        uint256 fee = amountAccrued.mul(globalFee).div(10000);
         postItems[_postId].stakes[_msgSender].status = StakingStatus.Closed;
         postItems[_postId].stakesOpenCount =  postItems[_postId].stakesOpenCount.sub(1);// new count for watching amount of stakes open
         postItems[_postId].stakes[_msgSender].blockClosed = block.number;
@@ -182,15 +183,15 @@ contract ContentStaking is Ownable,Featureable {
          If this is the case that money must also be pushed to the owner and must not be allowed to sit.
      */
     function claimPostEarnings(bytes32 _postId, address payable _msgSender) public onlyGatewayOrThis payable {
-         //require(postItems[_postId].tippingBlockStart > block.number,"Post is still in staking period, wait until tipping period has started."); //removed for demo purposes, put bac in after
+        require(postItems[_postId].tippingBlockStart > block.number,"Post is still in staking period, wait until tipping period has started."); //removed for demo purposes, put bac in after
         // check that person is either creator or that is came from the owner. which came from the functioncontract (gateway)
-           require((_msgSender == postItems[_postId].creator || _msgSender == _owner),"You are not the owner of this content");
+        require((_msgSender == postItems[_postId].creator || _msgSender == _owner),"You are not the owner of this content");
 
-        // require it to be POST owner of the _postId or Huddln
+      
         //check if there are any stakes open, it will be 0 if there are no stakers or if all the stakers have closed their stakes
         if ( postItems[_postId].stakesOpenCount == 0 ){
-             uint256 tipsFee = postItems[_postId].tipPool * 10/100; //Fee to subtract goes to owner
-             uint256 stakePoolFeesFee =  postItems[_postId].stakeFeePool * 10/100; //fee to subtract goes to owner, should rename this .. terrible name
+             uint256 tipsFee = postItems[_postId].tipPool.mul(globalFee).div(10000); //Fee to subtract goes to owner
+             uint256 stakePoolFeesFee =  postItems[_postId].stakeFeePool.mul(globalFee).div(10000); //fee to subtract goes to owner, should rename this .. terrible name
 
              uint256 earningsAmountTips = postItems[_postId].tipPool.sub(tipsFee); //just earnings for this round
              uint256 earningsAmountStakeFees = postItems[_postId].stakeFeePool.sub(stakePoolFeesFee);
@@ -207,7 +208,7 @@ contract ContentStaking is Ownable,Featureable {
 
         } else {
             // this case, handles if there are 1 or more stakers, then the creator only takes from the stakefeepool.
-             uint256 fee = (postItems[_postId].stakeFeePool) * 10/100;
+             uint256 fee = postItems[_postId].stakeFeePool.mul(globalFee).div(10000);
              uint256 earningsAmount = postItems[_postId].stakeFeePool.sub(fee); //just earnings for this round
 
              postItems[_postId].creatorEarningsAmount = postItems[_postId].creatorEarningsAmount.add(earningsAmount);//must sum up earnings from prev round
