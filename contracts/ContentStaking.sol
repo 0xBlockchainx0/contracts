@@ -4,7 +4,9 @@ import './abstractions/Pausable.sol';
 import './abstractions/Ownable.sol';
 import './abstractions/Featureable.sol';
 import "./lib/BasicMetaTransaction.sol";
-import "./lib/SafeMath.sol";
+
+import "@openzeppelin/contracts/math/SafeMath.sol";
+
 contract ContentStaking is Ownable,Featureable {
     using SafeMath for uint256; //must use the uint256 of safemath instead of regular sol.
     
