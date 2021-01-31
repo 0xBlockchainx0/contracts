@@ -57,11 +57,13 @@ contract ERC721PresetPauserAutoId is Context, AccessControl, ERC721Burnable, ERC
      *
      * - the caller must have the `MINTER_ROLE`.
      */
-    function mint(address to) public virtual {
+    function mint(address to,string memory tokenURI) public virtual {
         // We cannot just use balanceOf to create the new tokenId because tokens
         // can be burned (destroyed), so we need a separate counter.
-        _mint(to, _tokenIdTracker.current());
+        uint256 newItemId =_tokenIdTracker.current();
+        _mint(to, newItemId);
         _tokenIdTracker.increment();
+        _setTokenURI(newItemId,tokenURI);
     }
 
     /**
