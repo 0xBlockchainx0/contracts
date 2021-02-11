@@ -1,4 +1,4 @@
-let HuddlnBaseAsset = artifacts.require("./HuddlnBaseAsset.sol");
+let HuddlnMediaAsset = artifacts.require("./HuddlnMediaAsset.sol");
 module.exports = function(deployer) {
-    deployer.deploy(HuddlnBaseAsset);
+    deployer.deploy(HuddlnMediaAsset);
 };
